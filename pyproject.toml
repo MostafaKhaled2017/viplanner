@@ -22,13 +22,12 @@ classifiers = [
 dependencies = [
     "torch",
     "torchvision",
-    "PyYAML==6.0",
+    "PyYAML>=5.4.1,<7",
     "tqdm",
     "matplotlib",
     "networkx",
     "scipy",
     "open3d==0.17.0",
-    "wandb==0.14.0",
     "opencv-python-headless",
 ]
 
@@ -40,6 +39,9 @@ inference = [
 ]
 standard = [
     "pypose",
+]
+training = [
+    "wandb>=0.15,<0.17",
 ]
 jetson = [
     "torch==1.11",

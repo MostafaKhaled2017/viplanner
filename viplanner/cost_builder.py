@@ -4,6 +4,8 @@
 #
 # SPDX-License-Identifier: BSD-3-Clause
 
+import argparse
+
 # imperative-cost-map
 from viplanner.config import CostMapConfig
 from viplanner.cost_maps import CostMapPCD, SemCostMap, TsdfCostMap
@@ -47,7 +49,16 @@ def main(cfg: CostMapConfig, final_viz: bool = True):
 
 
 if __name__ == "__main__":
-    cfg = CostMapConfig()
+    parser = argparse.ArgumentParser(prog="Build Costmap", description="Build a cost map from a point cloud")
+    parser.add_argument(
+        "--config",
+        type=str,
+        required=True,
+        help="Path to the cost map yaml config file",
+    )
+    args = parser.parse_args()
+
+    cfg = CostMapConfig.from_yaml(args.config)
     main(cfg)
 
 # EoF

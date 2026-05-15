@@ -5,6 +5,19 @@ ros/planner/models/*
 # beat the planner files
 *beat_the_planner*
 
+info.md
+AGENTS.md
+
+ref
+
+devel
+install
+log
+
+data
+
+models
+
 # nvidia jetson apt list files
 bin/packages/nvidia*
 
@@ -160,3 +173,4 @@ logs/
 *~
 *.bag
 .DS_Store
+cuda-keyring_1.0-1_all.deb

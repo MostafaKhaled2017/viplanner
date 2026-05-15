@@ -18,8 +18,12 @@ import torch.optim as optim
 import torch.utils.data as Data
 import torchvision.transforms as transforms
 import tqdm
-import wandb  # logging
 import yaml
+
+try:
+    import wandb  # logging
+except (ImportError, ModuleNotFoundError):
+    wandb = None
 
 # imperative-planning-learning
 from viplanner.config import TrainCfg
@@ -99,9 +103,12 @@ class Trainer:
         else:
             train_loader_list, val_loader_list = self._get_dataloader()
 
-        try:
-            wandb.watch(self.net)
-        except:  # noqa: E722
+        if wandb is not None:
+            try:
+                wandb.watch(self.net)
+            except Exception:
+                print("[WARNING] Wandb model watch failed")
+        else:
             print("[WARNING] Wandb model watch failed")
 
         for epoch in range(self._cfg.epochs):
@@ -114,15 +121,18 @@ class Trainer:
             train_loss /= len(train_loader_list)
             val_loss /= len(train_loader_list)
 
-            try:
-                wandb.log(
-                    {
-                        "train_loss": train_loss,
-                        "val_loss": val_loss,
-                        "epoch": epoch,
-                    }
-                )
-            except:  # noqa: E722
+            if wandb is not None:
+                try:
+                    wandb.log(
+                        {
+                            "train_loss": train_loss,
+                            "val_loss": val_loss,
+                            "epoch": epoch,
+                        }
+                    )
+                except Exception:
+                    print("[WARNING] Wandb logging failed")
+            else:
                 print("[WARNING] Wandb logging failed")
 
             # if val_loss < best_loss:
@@ -206,8 +216,9 @@ class Trainer:
             yaml.dump(save_dict, file, allow_unicode=True, default_flow_style=False)
 
         # logging
-        with contextlib.suppress(Exception):
-            wandb.finish()
+        if wandb is not None:
+            with contextlib.suppress(Exception):
+                wandb.finish()
 
         # plot hierarchical losses
         if self._cfg.hierarchical:
@@ -280,6 +291,10 @@ class Trainer:
 
     # Helper function TRAINING
     def _init_logging(self) -> None:
+        if wandb is None:
+            print("[WARNING] Wandb not available")
+            return
+
         # logging
         os.environ["WANDB_API_KEY"] = self._cfg.wb_api_key
         os.environ["WANDB_MODE"] = "online"
@@ -293,7 +308,7 @@ class Trainer:
                 config=self._cfg.__dict__,
                 dir=self._cfg.log_dir,
             )
-        except:  # noqa: E722
+        except Exception:
             print("[WARNING: Wandb not available")
         return
 
@@ -488,7 +503,8 @@ class Trainer:
                 goal_flip,
                 log_step=log_step,
             )
-            wandb.log({"train_loss_step": loss}, step=log_step)
+            if wandb is not None:
+                wandb.log({"train_loss_step": loss}, step=log_step)
 
             loss.backward()
             self.optimizer.step()
@@ -544,7 +560,7 @@ class Trainer:
                     dataset=dataset,
                 )
 
-                if dataset == "val":
+                if dataset == "val" and wandb is not None:
                     wandb.log({f"{dataset}_loss_step": loss}, step=log_step)
 
                 test_loss += loss.item()

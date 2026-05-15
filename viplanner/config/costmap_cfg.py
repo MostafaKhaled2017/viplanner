@@ -6,7 +6,7 @@
 
 # python
 import os
-from dataclasses import dataclass
+from dataclasses import dataclass, fields
 from typing import Optional
 
 import yaml
@@ -67,8 +67,8 @@ class ReconstructionCfg:
     # environment name
     env: str = "warehouse_new"  # has to be adjusted
     # image suffix
-    depth_suffix = ""
-    sem_suffix = ""
+    depth_suffix: str = ""
+    sem_suffix: str = ""
     # higher resolution depth images available for reconstruction  (meaning that the depth images are also taked by the semantic camera)
     high_res_depth: bool = False
 
@@ -84,6 +84,38 @@ class ReconstructionCfg:
     point_cloud_batch_size: int = (
         200  # 3d points of nbr images added to point cloud at once (higher values use more memory but faster)
     )
+
+    @classmethod
+    def from_yaml(cls, yaml_path: str):
+        with open(yaml_path) as f:
+            cfg_dict = yaml.load(f, Loader=Loader)
+
+        if not isinstance(cfg_dict, dict):
+            raise ValueError(f"Reconstruction config file must contain a mapping: {yaml_path}")
+
+        if "reconstruction" in cfg_dict:
+            config = cfg_dict["reconstruction"]
+        elif "config" in cfg_dict:
+            raise ValueError(
+                "Reconstruction config missing top-level 'reconstruction' section in shared config file: "
+                f"{yaml_path}"
+            )
+        else:
+            config = cfg_dict
+
+        if isinstance(config, cls):
+            return config
+        if not isinstance(config, dict):
+            raise ValueError(f"Reconstruction config section must be a mapping: {yaml_path}")
+
+        valid_fields = {field.name for field in fields(cls)}
+        unknown_fields = sorted(set(config.keys()) - valid_fields)
+        if unknown_fields:
+            raise ValueError(
+                "Unknown reconstruction config field(s): " + ", ".join(unknown_fields)
+            )
+
+        return cls(**config)
 
     """ Internal functions """
 
@@ -192,6 +224,27 @@ class CostMapConfig:
     # FILLED BY CODE -> DO NOT CHANGE ###
     x_start: float = None
     y_start: float = None
+
+    @classmethod
+    def from_yaml(cls, yaml_path: str):
+        with open(yaml_path) as f:
+            cfg_dict = yaml.load(f, Loader=Loader)
+
+        config = dict(cfg_dict["config"]) if "config" in cfg_dict else dict(cfg_dict)
+
+        general = config.get("general")
+        if isinstance(general, dict):
+            config["general"] = GeneralCostMapConfig(**general)
+
+        sem_cost_map = config.get("sem_cost_map")
+        if isinstance(sem_cost_map, dict):
+            config["sem_cost_map"] = SemCostMapConfig(**sem_cost_map)
+
+        tsdf_cost_map = config.get("tsdf_cost_map")
+        if isinstance(tsdf_cost_map, dict):
+            config["tsdf_cost_map"] = TsdfCostMapConfig(**tsdf_cost_map)
+
+        return cls(**config)
 
 
 # EoF

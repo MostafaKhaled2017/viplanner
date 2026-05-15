@@ -1,0 +1,43 @@
+# Output
+dataset_root: /workspaces/viplanner/src/planner/data
+env_name: forest_s1
+
+# Simulator topics
+depth_topic: /drone_1/depth
+rgb_topic: /drone_1/cam/compressed
+depth_info_topic: /drone_1/depth/camera_info
+rgb_info_topic: /drone_1/cam/camera_info
+rgb_compressed: true
+
+# Frames
+world_frame_id: world
+depth_frame_id: ""  # Leave empty to use the depth image header frame_id.
+rgb_frame_id: ""    # Leave empty to use the RGB image header frame_id.
+rgb_pose_fallback_to_depth: true  # Use depth pose if the RGB frame is not present in TF.
+use_latest_tf: false
+tf_buffer_seconds: 30.0
+tf_timeout_seconds: 0.2
+convert_optical_to_viplanner: false
+
+# vIPlanner dataset naming
+depth_suffix: _cam0
+rgb_suffix: _cam1
+
+# Expected image dimensions
+depth_width: 640
+depth_height: 360
+rgb_width: 640
+rgb_height: 360
+
+# Depth handling
+depth_is_uint16: true  # true means incoming depth already stores millimeters in uint16.
+depth_scale: 1000.0
+max_depth: 15.0
+save_depth_npy: true
+
+# Recording policy
+sync_slop_seconds: 0.05
+sample_min_interval: 0.2
+sample_min_distance: 0.1
+sample_min_angle_deg: 5.0
+max_samples: 0  # 0 records until shutdown.

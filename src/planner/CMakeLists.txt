@@ -27,6 +27,9 @@ catkin_package(
 #  DEPENDS system_lib
 )
 
-catkin_install_python(PROGRAMS src/viplanner_node.py
+catkin_install_python(PROGRAMS
+  src/viplanner_node.py
+  src/viplanner_data_collect_node.py
+  src/print_image_values.py
   DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
 )

@@ -5,6 +5,7 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 # python
+import argparse
 import os
 
 import cv2
@@ -261,17 +262,36 @@ class DepthReconstruction:
 
     def _read_intrinsic(self) -> None:
         intrinsic_path = os.path.join(self._cfg.get_data_path(), "intrinsics.txt")
-        P = np.loadtxt(intrinsic_path, delimiter=",")  # assumes ROS P matrix
-        self._intrinsic = list(P)
+        P = self._projection_rows(np.loadtxt(intrinsic_path, delimiter=","), intrinsic_path)
+        self._intrinsic = P.tolist()
         if self._cfg.semantics:
+            if len(P) < 2:
+                raise ValueError(
+                    "Semantic reconstruction requires depth and semantic projection matrices in "
+                    f"{intrinsic_path}"
+                )
             self.K_depth = P[0].reshape(3, 4)[:3, :3]
             self.K_sem = P[1].reshape(3, 4)[:3, :3]
         else:
-            self.K_depth = P.reshape(3, 4)[:3, :3]
+            self.K_depth = P[0].reshape(3, 4)[:3, :3]
 
         if self._cfg.high_res_depth:
             self.K_depth = self.K_sem
         return
+
+    @staticmethod
+    def _projection_rows(values: np.ndarray, intrinsic_path: str) -> np.ndarray:
+        values = np.asarray(values, dtype=float)
+        if values.ndim == 1 and values.size == 12:
+            return values.reshape(1, 12)
+        if values.ndim == 2 and values.shape[1] == 12:
+            return values
+        if values.ndim == 2 and values.shape[1] == 4 and values.shape[0] % 3 == 0:
+            return values.reshape(-1, 12)
+        raise ValueError(
+            "Expected intrinsics to contain one or more ROS projection matrices with 12 values each: "
+            f"{intrinsic_path}"
+        )
 
     def _load_depth_image(self, idx: int) -> np.ndarray:
         # get path to images
@@ -359,14 +379,32 @@ class DepthReconstruction:
         return sem_annotation, filter_idx
 
 
-if __name__ == "__main__":
-    cfg = ReconstructionCfg()
+def build_argparser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(
+        prog="Depth Reconstruction",
+        description="Reconstruct a point cloud from depth images using a YAML config file",
+    )
+    parser.add_argument(
+        "--config",
+        type=str,
+        required=True,
+        help="Path to the YAML file containing the top-level reconstruction config section",
+    )
+    return parser
 
-    # start depth reconstruction
+
+def main(argv=None) -> int:
+    args = build_argparser().parse_args(argv)
+    cfg = ReconstructionCfg.from_yaml(args.config)
+
     depth_constructor = DepthReconstruction(cfg)
     depth_constructor.depth_reconstruction()
-
     depth_constructor.save_pcd()
     depth_constructor.show_pcd()
+    return 0
+
+
+if __name__ == "__main__":
+    main()
 
 # EoF

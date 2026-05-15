@@ -8,6 +8,7 @@ import os
 
 # python
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import List, Optional, Tuple, Union
 
 import yaml
@@ -239,7 +240,19 @@ class TrainCfg:
         with open(yaml_path) as f:
             cfg_dict = yaml.load(f, Loader=Loader)
 
-        return cls(**cfg_dict["config"])
+        config = dict(cfg_dict["config"])
+        data_cfg = config.get("data_cfg")
+
+        if isinstance(data_cfg, dict):
+            config["data_cfg"] = DataCfg(**data_cfg)
+        elif isinstance(data_cfg, list):
+            config["data_cfg"] = [entry if isinstance(entry, DataCfg) else DataCfg(**entry) for entry in data_cfg]
+
+        file_name = config.get("file_name")
+        if file_name is None:
+            config["file_name"] = Path(yaml_path).stem
+
+        return cls(**config)
 
 
 # EoF

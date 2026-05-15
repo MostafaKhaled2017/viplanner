@@ -21,6 +21,14 @@ If depth and semantic images of the simulation are available, then first 3D reco
     1. Generate colored point cloud by warping each semantic images onto the depth image (account for cameras in different frames)
     2. Projection into 3D space and voxelization
 
+    Run the reconstruction with the shared YAML config file:
+
+    ``` bash
+    python viplanner/depth_reconstruct.py --config viplanner/config/costmap.yaml
+    ```
+
+    The script reads its settings from the top-level `reconstruction:` section in that YAML file.
+
     The process expects following datastructure:
 
     ``` graphql
@@ -59,7 +67,7 @@ If depth and semantic images of the simulation are available, then first 3D reco
     Either a geometric or semantic cost map can be generated running the following command:
 
     ```
-    python viplanner/cost_builder.py
+    python viplanner/cost_builder.py --config viplanner/config/costmap.yaml
     ```
 
     With configs set in [CostMapConfig](viplanner/config/costmap_cfg.py). We provided some standard values, however, before running the script, please adjust the config to your needs and local environment paths.

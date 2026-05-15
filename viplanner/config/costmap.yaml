@@ -1,0 +1,61 @@
+reconstruction:
+  data_dir: "/workspaces/viplanner/src/planner/data"
+  env: forest_s1
+  depth_suffix: "_cam0"
+  sem_suffix: "_cam1"
+  high_res_depth: false
+  voxel_size: 0.05
+  start_idx: 0
+  max_images: 1000
+  depth_scale: 1000
+  semantics: false
+  point_cloud_batch_size: 200
+
+config:
+  semantics: false
+  geometry: true
+
+  map_name: cost_map_geom # `cost_map_sem` or `cost_map_geom`(If using depth only)
+
+  general:
+    root_path: "/workspaces/viplanner/src/planner/data/forest_s1"
+    ply_file: cloud.ply
+    # resolution: 0.04 # 0.04 for matterport, 0.1 for carla
+    # clear_dist: 1.0
+    # sigma_smooth: 3.0
+    x_min: null # use point-cloud minimum when null
+    y_min: null # use point-cloud minimum when null
+    x_max: null # use point-cloud maximum when null
+    y_max: null # use point-cloud maximum when null
+
+  sem_cost_map:
+    ground_height: null # null for matterport, -0.5 for carla, -1.0 for nomoko
+    robot_height: 2.0
+    robot_height_factor: 3.0
+    # nb_neighbors: 100
+    # std_ratio: 2.0
+    downsample: false
+    # nb_neigh: 15
+    # change_decimal: 3
+    # conv_crit: 0.45
+    nb_tasks: 10 # null uses all available cores
+    sigma_smooth: 2.5
+    max_iterations: 1
+    obstacle_threshold: 0.5 # Values above it is considered as obstacle
+    negative_reward: 0.5
+    round_decimal_traversable: 2
+    compute_height_map: false # false for matterport, true for carla and nomoko
+
+  tsdf_cost_map:
+    offset_z: 0.0
+    ground_height: null
+    robot_height: 0.70
+    robot_height_factor: 2.0
+    nb_neighbors: 50
+    std_ratio: 0.2
+    filter_outliers: true
+    sigma_expand: 2.0
+    obstacle_threshold: 0.01
+    free_space_threshold: 0.5
+
+  visualize: true

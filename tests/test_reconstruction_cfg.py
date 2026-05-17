@@ -2,6 +2,7 @@ import importlib.util
 import tempfile
 import textwrap
 import unittest
+from types import SimpleNamespace
 from pathlib import Path
 from unittest import mock
 
@@ -39,6 +40,9 @@ class TestReconstructionCfg(unittest.TestCase):
             self.assertEqual(cfg.start_idx, 3)
             self.assertFalse(cfg.semantics)
             self.assertEqual(cfg.voxel_size, 0.05)
+            self.assertEqual(cfg.robot_height_margin, 0.3)
+            self.assertEqual(cfg.robot_height_variation_threshold, 0.01)
+            self.assertEqual(cfg.robot_height_sample_count, 50)
             self.assertEqual(cfg.point_cloud_batch_size, 200)
 
     def test_from_yaml_accepts_reconstruction_only_mapping(self):
@@ -51,6 +55,9 @@ class TestReconstructionCfg(unittest.TestCase):
                     env: warehouse
                     max_images: null
                     depth_scale: 500
+                    robot_height_margin: 0.4
+                    robot_height_variation_threshold: 0.02
+                    robot_height_sample_count: 10
                     """
                 )
             )
@@ -61,6 +68,9 @@ class TestReconstructionCfg(unittest.TestCase):
             self.assertEqual(cfg.env, "warehouse")
             self.assertIsNone(cfg.max_images)
             self.assertEqual(cfg.depth_scale, 500)
+            self.assertEqual(cfg.robot_height_margin, 0.4)
+            self.assertEqual(cfg.robot_height_variation_threshold, 0.02)
+            self.assertEqual(cfg.robot_height_sample_count, 10)
 
     def test_from_yaml_rejects_shared_file_without_reconstruction_section(self):
         with tempfile.TemporaryDirectory() as tmp_dir:
@@ -118,15 +128,28 @@ class TestDepthReconstructCli(unittest.TestCase):
         from viplanner import depth_reconstruct
 
         cfg = ReconstructionCfg(data_dir="/tmp/dataset", env="forest")
+        robot_height_info = SimpleNamespace(
+            altitude=2.0,
+            margin=0.3,
+            robot_height=2.3,
+            sample_indices=np.array([0]),
+            z_range=0.0,
+        )
         constructor = mock.MagicMock()
 
         with mock.patch.object(depth_reconstruct.ReconstructionCfg, "from_yaml", return_value=cfg) as from_yaml:
-            with mock.patch.object(depth_reconstruct, "DepthReconstruction", return_value=constructor) as cls_mock:
-                result = depth_reconstruct.main(["--config", "/tmp/costmap.yaml"])
+            with mock.patch.object(
+                depth_reconstruct,
+                "compute_robot_height_from_dataset",
+                return_value=robot_height_info,
+            ) as compute_height:
+                with mock.patch.object(depth_reconstruct, "DepthReconstruction", return_value=constructor) as cls_mock:
+                    result = depth_reconstruct.main(["--config", "/tmp/costmap.yaml"])
 
         self.assertEqual(result, 0)
         from_yaml.assert_called_once_with("/tmp/costmap.yaml")
-        cls_mock.assert_called_once_with(cfg)
+        compute_height.assert_called_once_with(cfg)
+        cls_mock.assert_called_once_with(cfg, robot_height_info=robot_height_info)
         constructor.depth_reconstruction.assert_called_once_with()
         constructor.save_pcd.assert_called_once_with()
         constructor.show_pcd.assert_called_once_with()

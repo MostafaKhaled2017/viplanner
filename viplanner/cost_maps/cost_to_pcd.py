@@ -196,14 +196,30 @@ class CostMapPCD:
 
     @classmethod
     def ReadTSDFMap(cls, root_path: str, map_name: str, gpu_id: Optional[int] = None):
+        required_paths = {
+            "config": os.path.join(root_path, "maps", "params", f"config_{map_name}.yaml"),
+            "map": os.path.join(root_path, "maps", "data", map_name + "_map.txt"),
+            "cloud": os.path.join(root_path, "maps", "cloud", map_name + "_cloud.txt"),
+            "ground": os.path.join(root_path, "maps", "data", map_name + "_ground.txt"),
+        }
+        missing_paths = [path for path in required_paths.values() if not os.path.isfile(path)]
+        if missing_paths:
+            missing = "\n".join(f"  - {path}" for path in missing_paths)
+            raise FileNotFoundError(
+                f"Missing cost map files for '{map_name}' under '{root_path}':\n"
+                f"{missing}\n"
+                "Generate the requested cost map first, or set 'cost_map_name: cost_map_geom' "
+                "for depth-only training when only geometric maps are available."
+            )
+
         # read config
-        with open(os.path.join(root_path, "maps", "params", f"config_{map_name}.yaml")) as f:
+        with open(required_paths["config"]) as f:
             cfg: CostMapConfig = CostMapConfig(**yaml.load(f, Loader))
 
         # load data
-        tsdf_array = np.loadtxt(os.path.join(root_path, "maps", "data", map_name + "_map.txt"))
-        viz_points = np.loadtxt(os.path.join(root_path, "maps", "cloud", map_name + "_cloud.txt"))
-        ground_array = np.loadtxt(os.path.join(root_path, "maps", "data", map_name + "_ground.txt"))
+        tsdf_array = np.loadtxt(required_paths["map"])
+        viz_points = np.loadtxt(required_paths["cloud"])
+        ground_array = np.loadtxt(required_paths["ground"])
 
         return cls(
             cfg=cfg,

@@ -1,40 +1,35 @@
 config:
-  sem: true
+  sem: false
   rgb: false
   file_name: null
   seed: 0
   gpu_id: 0
-  file_path: "${USER_PATH_TO_MODEL_DATA}"
+  file_path: "src/planner"
 
-  cost_map_name: cost_map_sem # or cost_map_geom
+  cost_map_name: cost_map_geom # use cost_map_sem for semantic cost maps
   env_list: # Expected under data directory
-    - 2azQ1b91cZZ
-    - JeFG25nYj2p
-    - Vvot9Ly1tCj
-    - ur6pFq6Qu1A
-    - B6ByNegPMKs
-    - 8WUmhLawc2A
-    - E9uDoFAP3SH
-    - QUCTc6BB5sX
-    - YFuZgdQ5vWj
-    - 2n8kARJN3HM
-  test_env_id: 9
+    - forest_s1_high
+    - forest_s2
+    - forest_s2_high
+    - forest_s2_p2
+    - forest_s3
+  test_env_id: 3
   data_cfg:
     real_world_data: false # rotate loaded images by 180 degrees
     carla: false # Apply carla specific filtering
     max_depth: 15.0
-    max_goal_distance: 15.0
+    max_goal_distance: 20.0
     min_goal_distance: 0.5
     distance_scheme:
       1: 0.2
-      3: 0.35
-      5: 0.25
-      7.5: 0.15
-      10: 0.05
+      5: 0.35
+      10: 0.25
+      15: 0.15
+      20: 0.05
     obs_cost_height: 1.5
     fov_scale: 1.0
     depth_scale: 1000.0 
-  num_workers: 16
+  num_workers: 4
   load_in_ram: false
 
   fear_ahead_dist: 2.5
@@ -49,7 +44,7 @@ config:
     - 640
   in_channel: 16 
   knodes: 5 
-  pre_train_sem: true
+  pre_train_sem: false # TODO : Update when we have a pretrained semantic model
   pre_train_cfg: m2f_model/coco/panoptic/maskformer2_R50_bs16_50ep.yaml
   pre_train_weights: m2f_model/coco/panoptic/model_final_94dc52.pkl
   pre_train_freeze: true
@@ -57,7 +52,7 @@ config:
 
   resume: false
   epochs: 100
-  batch_size: 64
+  batch_size: 32
   hierarchical: false
   hierarchical_step: 50
   hierarchical_front_step_ratio: 0.02
@@ -71,7 +66,7 @@ config:
   momentum: 0.1
   w_decay: 0.0001
 
-  camera_tilt: 0.15
+  camera_tilt: 0.0 # TODO: Update when recording data with camera tilted
   n_visualize: 15
 
   wb_project: VIPlanner

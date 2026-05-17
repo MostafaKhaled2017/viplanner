@@ -1,6 +1,6 @@
 reconstruction:
   data_dir: "/workspaces/viplanner/src/planner/data"
-  env: forest_s1
+  env: forest_s3 # forest_s1_high , forest_s2, forest_s2_high, forest_s2_p2, forest_s3
   depth_suffix: "_cam0"
   sem_suffix: "_cam1"
   high_res_depth: false
@@ -8,6 +8,9 @@ reconstruction:
   start_idx: 0
   max_images: 1000
   depth_scale: 1000
+  robot_height_margin: 0.3
+  robot_height_variation_threshold: 0.01
+  robot_height_sample_count: 50
   semantics: false
   point_cloud_batch_size: 200
 
@@ -18,7 +21,7 @@ config:
   map_name: cost_map_geom # `cost_map_sem` or `cost_map_geom`(If using depth only)
 
   general:
-    root_path: "/workspaces/viplanner/src/planner/data/forest_s1"
+    root_path: "/workspaces/viplanner/src/planner/data/forest_s3"
     ply_file: cloud.ply
     # resolution: 0.04 # 0.04 for matterport, 0.1 for carla
     # clear_dist: 1.0
@@ -30,8 +33,6 @@ config:
 
   sem_cost_map:
     ground_height: null # null for matterport, -0.5 for carla, -1.0 for nomoko
-    robot_height: 2.0
-    robot_height_factor: 3.0
     # nb_neighbors: 100
     # std_ratio: 2.0
     downsample: false
@@ -48,9 +49,7 @@ config:
 
   tsdf_cost_map:
     offset_z: 0.0
-    ground_height: null
-    robot_height: 0.70
-    robot_height_factor: 2.0
+    ground_height: 0.20
     nb_neighbors: 50
     std_ratio: 0.2
     filter_outliers: true

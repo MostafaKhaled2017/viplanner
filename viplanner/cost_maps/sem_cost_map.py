@@ -35,10 +35,12 @@ class SemCostMap:
         self,
         cfg_general: GeneralCostMapConfig,
         cfg: SemCostMapConfig,
+        robot_height: float,
         visualize: bool = True,
     ):
         self._cfg_general = cfg_general
         self._cfg_sem = cfg
+        self._robot_height = robot_height
         self.visualize = visualize
 
         # init VIPlanner Semantic Class Meta Handler
@@ -211,7 +213,7 @@ class SemCostMap:
             ).astype(int)
             pts[:, 2] -= self.height_map[pts_grid_idx[:, 0], pts_grid_idx[:, 1]]
 
-        pts_ceil_idx = pts[:, 2] < self._cfg_sem.robot_height * self._cfg_sem.robot_height_factor
+        pts_ceil_idx = pts[:, 2] < self._robot_height
         pts_ground_idx = (
             pts[:, 2] > self._cfg_sem.ground_height
             if self._cfg_sem.ground_height is not None

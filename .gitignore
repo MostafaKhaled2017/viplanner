@@ -18,6 +18,8 @@ data
 
 models
 
+Documentation.md
+
 # nvidia jetson apt list files
 bin/packages/nvidia*
 

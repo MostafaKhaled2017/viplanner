@@ -7,23 +7,33 @@
 import argparse
 
 # imperative-cost-map
-from viplanner.config import CostMapConfig
+from viplanner.config import (
+    CostMapConfig,
+    ReconstructionCfg,
+    compute_robot_height_from_dataset,
+    robot_height_info_message,
+)
 from viplanner.cost_maps import CostMapPCD, SemCostMap, TsdfCostMap
 
 
-def main(cfg: CostMapConfig, final_viz: bool = True):
+def main(cfg: CostMapConfig, robot_height: float, final_viz: bool = True):
     assert any([cfg.semantics, cfg.geometry]), "no cost map type selected"
 
     # create semantic cost map
     if cfg.semantics:
         print("============ Creating Semantic Map from cloud ===============")
-        sem_cost_map = SemCostMap(cfg.general, cfg.sem_cost_map, visualize=cfg.visualize)
+        sem_cost_map = SemCostMap(
+            cfg.general,
+            cfg.sem_cost_map,
+            robot_height=robot_height,
+            visualize=cfg.visualize,
+        )
         sem_cost_map.pcd_init()
         data, coord = sem_cost_map.create_costmap()
     # create tsdf cost map
     elif cfg.geometry:
         print("============== Creating tsdf Map from cloud =================")
-        tsdf_cost_map = TsdfCostMap(cfg.general, cfg.tsdf_cost_map)
+        tsdf_cost_map = TsdfCostMap(cfg.general, cfg.tsdf_cost_map, robot_height=robot_height)
         tsdf_cost_map.ReadPointFromFile()
         data, coord = tsdf_cost_map.CreateTSDFMap()
         (tsdf_cost_map.VizCloud(tsdf_cost_map.obs_pcd) if cfg.visualize else None)
@@ -48,7 +58,7 @@ def main(cfg: CostMapConfig, final_viz: bool = True):
     return
 
 
-if __name__ == "__main__":
+def build_argparser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="Build Costmap", description="Build a cost map from a point cloud")
     parser.add_argument(
         "--config",
@@ -56,9 +66,21 @@ if __name__ == "__main__":
         required=True,
         help="Path to the cost map yaml config file",
     )
-    args = parser.parse_args()
+    return parser
 
-    cfg = CostMapConfig.from_yaml(args.config)
-    main(cfg)
+
+def run_from_config(config_path: str, final_viz: bool = True) -> None:
+    reconstruction_cfg = ReconstructionCfg.from_yaml(config_path)
+    robot_height_info = compute_robot_height_from_dataset(reconstruction_cfg)
+    print(robot_height_info_message(robot_height_info))
+
+    cfg = CostMapConfig.from_yaml(config_path)
+    main(cfg, robot_height=robot_height_info.robot_height, final_viz=final_viz)
+
+
+if __name__ == "__main__":
+    args = build_argparser().parse_args()
+
+    run_from_config(args.config)
 
 # EoF

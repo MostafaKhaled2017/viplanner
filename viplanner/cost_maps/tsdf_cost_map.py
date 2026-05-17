@@ -23,9 +23,10 @@ class TsdfCostMap:
     Cost Map based on geometric information
     """
 
-    def __init__(self, cfg_general: GeneralCostMapConfig, cfg_tsdf: TsdfCostMapConfig):
+    def __init__(self, cfg_general: GeneralCostMapConfig, cfg_tsdf: TsdfCostMapConfig, robot_height: float):
         self._cfg_general = cfg_general
         self._cfg_tsdf = cfg_tsdf
+        self._robot_height = robot_height
         # set init flag
         self.is_map_ready = False
         # init point clouds
@@ -64,7 +65,7 @@ class TsdfCostMap:
         for p in input_points:
             p_height = p[2] + self._cfg_tsdf.offset_z
             if (p_height > self._cfg_tsdf.ground_height * 1.2) and (
-                p_height < self._cfg_tsdf.robot_height * self._cfg_tsdf.robot_height_factor
+                p_height < self._robot_height
             ):  # remove ground and ceiling
                 obs_points[obs_idx, :] = p
                 obs_idx = obs_idx + 1

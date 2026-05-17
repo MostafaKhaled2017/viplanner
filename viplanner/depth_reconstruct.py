@@ -15,7 +15,13 @@ import scipy.spatial.transform as tf
 from tqdm import tqdm
 
 # imperative-cost-map
-from viplanner.config import ReconstructionCfg, VIPlannerSemMetaHandler
+from viplanner.config import (
+    ReconstructionCfg,
+    RobotHeightInfo,
+    VIPlannerSemMetaHandler,
+    compute_robot_height_from_dataset,
+    robot_height_info_message,
+)
 
 
 class DepthReconstruction:
@@ -55,9 +61,13 @@ class DepthReconstruction:
 
     debug = False
 
-    def __init__(self, cfg: ReconstructionCfg):
+    def __init__(self, cfg: ReconstructionCfg, robot_height_info: RobotHeightInfo = None):
         # get config
         self._cfg: ReconstructionCfg = cfg
+        self.robot_height_info = (
+            robot_height_info if robot_height_info is not None else compute_robot_height_from_dataset(cfg)
+        )
+        self.robot_height = self.robot_height_info.robot_height
         # read camera params and odom
         self.K_depth: np.ndarray = None
         self.K_sem: np.ndarray = None
@@ -396,8 +406,10 @@ def build_argparser() -> argparse.ArgumentParser:
 def main(argv=None) -> int:
     args = build_argparser().parse_args(argv)
     cfg = ReconstructionCfg.from_yaml(args.config)
+    robot_height_info = compute_robot_height_from_dataset(cfg)
+    print(robot_height_info_message(robot_height_info))
 
-    depth_constructor = DepthReconstruction(cfg)
+    depth_constructor = DepthReconstruction(cfg, robot_height_info=robot_height_info)
     depth_constructor.depth_reconstruction()
     depth_constructor.save_pcd()
     depth_constructor.show_pcd()

@@ -13,8 +13,11 @@ python viplanner/depth_reconstruct.py --config viplanner/config/costmap.yaml
 # Generating PCL & Building cost map
 # Need also to adjust the config/costmap.yaml file
 # Important params: map_name, robot_height, semantics, geometry
-python viplanner/depth_reconstruct.py --config viplanner/config/costmap.yaml
 python viplanner/cost_builder.py --config viplanner/config/costmap.yaml
+
+# Run training
+# Adjust configs in viplanner/config/train.yaml
+python viplanner/train.py
 
 # Generate Sementics from RGB
 python3 viplanner/generate_semantics.py \

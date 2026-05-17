@@ -9,11 +9,104 @@ import os
 from dataclasses import dataclass, fields
 from typing import Optional
 
+import numpy as np
 import yaml
 
 
 class Loader(yaml.SafeLoader):
     pass
+
+
+@dataclass
+class RobotHeightInfo:
+    """Robot height inferred from camera altitude samples."""
+
+    altitude: float
+    margin: float
+    threshold: float
+    z_min: float
+    z_max: float
+    z_range: float
+    robot_height: float
+    sample_indices: np.ndarray
+    extrinsic_path: str
+
+
+def _extrinsic_path_for_height(cfg: "ReconstructionCfg") -> str:
+    suffix = cfg.sem_suffix if cfg.high_res_depth else cfg.depth_suffix
+    return os.path.join(cfg.get_data_path(), "camera_extrinsic" + suffix + ".txt")
+
+
+def _extrinsic_rows(values: np.ndarray, extrinsic_path: str) -> np.ndarray:
+    values = np.asarray(values, dtype=float)
+    if values.ndim == 1 and values.size == 7:
+        return values.reshape(1, 7)
+    if values.ndim == 2 and values.shape[1] == 7:
+        return values
+    raise ValueError(
+        "Expected camera extrinsics with rows of 7 values "
+        f"(x, y, z, qx, qy, qz, qw): {extrinsic_path}"
+    )
+
+
+def evenly_spaced_sample_indices(num_frames: int, sample_count: int) -> np.ndarray:
+    if num_frames <= 0:
+        raise ValueError("Cannot sample robot height from an empty extrinsic file.")
+    if sample_count <= 0:
+        raise ValueError("robot_height_sample_count must be greater than zero.")
+    if sample_count >= num_frames:
+        return np.arange(num_frames, dtype=int)
+    return np.floor(np.arange(sample_count) * num_frames / sample_count).astype(int)
+
+
+def compute_robot_height_from_dataset(cfg: "ReconstructionCfg") -> RobotHeightInfo:
+    extrinsic_path = _extrinsic_path_for_height(cfg)
+    if not os.path.exists(extrinsic_path):
+        raise FileNotFoundError(f"Camera extrinsic file does not exist: {extrinsic_path}")
+    if os.path.getsize(extrinsic_path) == 0:
+        raise ValueError(f"Camera extrinsic file is empty: {extrinsic_path}")
+
+    extrinsics = _extrinsic_rows(np.loadtxt(extrinsic_path, delimiter=","), extrinsic_path)
+    sample_indices = evenly_spaced_sample_indices(
+        extrinsics.shape[0],
+        cfg.robot_height_sample_count,
+    )
+    sampled_z = extrinsics[sample_indices, 2]
+
+    if not np.all(np.isfinite(sampled_z)):
+        raise ValueError(f"Camera extrinsic z values must be finite: {extrinsic_path}")
+
+    z_min = float(np.min(sampled_z))
+    z_max = float(np.max(sampled_z))
+    z_range = z_max - z_min
+    if z_range > cfg.robot_height_variation_threshold:
+        raise ValueError(
+            "Dataset camera altitude varies by "
+            f"{z_range:.6f} m, which exceeds robot_height_variation_threshold "
+            f"{cfg.robot_height_variation_threshold:.6f} m."
+        )
+
+    altitude = float(np.mean(sampled_z))
+    robot_height = altitude + cfg.robot_height_margin
+    return RobotHeightInfo(
+        altitude=altitude,
+        margin=cfg.robot_height_margin,
+        threshold=cfg.robot_height_variation_threshold,
+        z_min=z_min,
+        z_max=z_max,
+        z_range=z_range,
+        robot_height=robot_height,
+        sample_indices=sample_indices,
+        extrinsic_path=extrinsic_path,
+    )
+
+
+def robot_height_info_message(info: RobotHeightInfo) -> str:
+    return (
+        f"Using robot height: {info.robot_height:.3f} m "
+        f"(dataset altitude {info.altitude:.3f} m + margin {info.margin:.3f} m; "
+        f"sampled {len(info.sample_indices)} frame(s), z range {info.z_range:.6f} m)"
+    )
 
 
 def construct_GeneralCostMapConfig(loader, node):
@@ -77,6 +170,10 @@ class ReconstructionCfg:
     start_idx: int = 0  # start index for reconstruction
     max_images: Optional[int] = 1000  # maximum number of images to reconstruct, if None, all images are used
     depth_scale: float = 1000  # depth scale factor
+    # robot height inferred from recorded camera altitude
+    robot_height_margin: float = 0.3
+    robot_height_variation_threshold: float = 0.01
+    robot_height_sample_count: int = 50
     # semantic reconstruction
     semantics: bool = True
 
@@ -132,8 +229,6 @@ class SemCostMapConfig:
 
     # point-cloud filter parameters
     ground_height: Optional[float] = -0.5  # None for matterport  -0.5 for carla  -1.0 for nomoko
-    robot_height: float = 0.70
-    robot_height_factor: float = 3.0
     nb_neighbors: int = 100
     std_ratio: float = 2.0  # keep high, otherwise ground will be removed
     downsample: bool = False
@@ -165,8 +260,6 @@ class TsdfCostMapConfig:
     offset_z: float = 0.0
     # filter parameters
     ground_height: float = 0.35
-    robot_height: float = 0.70
-    robot_height_factor: float = 2.0
     nb_neighbors: int = 50
     std_ratio: float = 0.2
     filter_outliers: bool = True

@@ -675,6 +675,28 @@ class PlannerDataGenerator(Dataset):
         self.alpha_fov = 2 * math.atan(self.K_depth[0, 0] / self.K_depth[0, 2])
         return
 
+    @staticmethod
+    def _edge_collisions_from_occupancy(
+        occupancy_map: np.ndarray,
+        occupancy_idx: np.ndarray,
+        num_intermediate: int,
+    ) -> np.ndarray:
+        occupancy_idx = np.floor(occupancy_idx).astype(np.int64)
+        in_bounds = (
+            (occupancy_idx[:, 0] >= 0)
+            & (occupancy_idx[:, 0] < occupancy_map.shape[0])
+            & (occupancy_idx[:, 1] >= 0)
+            & (occupancy_idx[:, 1] < occupancy_map.shape[1])
+        )
+
+        point_collision = np.ones(occupancy_idx.shape[0], dtype=bool)
+        point_collision[in_bounds] = occupancy_map[
+            occupancy_idx[in_bounds, 0],
+            occupancy_idx[in_bounds, 1],
+        ].astype(bool)
+
+        return np.any(point_collision.reshape(-1, num_intermediate), axis=1)
+
     def get_graph(self) -> None:
         num_connections = 3
         num_intermediate = 3
@@ -715,11 +737,7 @@ class PlannerDataGenerator(Dataset):
         ) / self.cost_map.cfg.general.resolution
 
         # check occupancy for collisions at the interpolated points
-        collision = occupancy_map[
-            occupancy_idx[:, 0].astype(np.int64),
-            occupancy_idx[:, 1].astype(np.int64),
-        ]
-        collision = np.any(collision.reshape(-1, num_intermediate), axis=1)
+        collision = self._edge_collisions_from_occupancy(occupancy_map, occupancy_idx, num_intermediate)
 
         # get edge indices
         idx_edge_start = np.repeat(np.arange(odom_points.shape[0]), repeats=num_connections, axis=0)

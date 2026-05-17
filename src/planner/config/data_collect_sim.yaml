@@ -1,6 +1,6 @@
 # Output
 dataset_root: /workspaces/viplanner/src/planner/data
-env_name: forest_s1
+env_name: forest_s1_high
 
 # Simulator topics
 depth_topic: /drone_1/depth
@@ -36,8 +36,8 @@ max_depth: 15.0
 save_depth_npy: true
 
 # Recording policy
-sync_slop_seconds: 0.05
+sync_slop_seconds: 0.1
 sample_min_interval: 0.2
 sample_min_distance: 0.1
 sample_min_angle_deg: 5.0
-max_samples: 0  # 0 records until shutdown.
+max_samples: 500  # 0 records until shutdown.

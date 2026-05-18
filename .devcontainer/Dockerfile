@@ -1,7 +1,9 @@
 FROM osrf/ros:noetic-desktop-full
 
 ENV DEBIAN_FRONTEND=noninteractive
-ENV CUDA_HOME=/usr/local/cuda
+ENV CUDA_HOME=/usr/local/cuda-11.7
+ENV FORCE_CUDA=1
+ENV TORCH_CUDA_ARCH_LIST="7.0;7.5;8.0;8.6+PTX"
 ENV PATH="${CUDA_HOME}/bin:${PATH}"
 ENV ROS_VERSION=1
 
@@ -35,7 +37,7 @@ RUN wget https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2004/x86
     dpkg -i cuda-keyring_1.0-1_all.deb && \
     rm cuda-keyring_1.0-1_all.deb && \
     apt-get update && \
-    apt-get install -y --no-install-recommends cuda-toolkit-12-1 && \
+    apt-get install -y --no-install-recommends cuda-toolkit-11-7 && \
     rm -rf /var/lib/apt/lists/*
 
 RUN update-alternatives --install /usr/bin/python python /usr/bin/python3 1
@@ -43,14 +45,23 @@ RUN update-alternatives --install /usr/bin/python python /usr/bin/python3 1
 WORKDIR /workspaces/viplanner
 COPY . /workspaces/viplanner
 
-RUN python3 -m pip install --upgrade pip && \
-    python3 -m pip install zmq && \
-    python3 -m pip install torch==2.0.1 torchvision==0.15.2 \
-      --index-url https://download.pytorch.org/whl/cu117 && \
+RUN python3 -m pip install --upgrade "pip<25" "setuptools<75" wheel
+
+RUN python3 -m pip install --ignore-installed PyYAML==6.0.3
+
+RUN python3 -m pip install pyzmq
+
+RUN python3 -m pip install \
+    torch==2.0.1+cu117 \
+    torchvision==0.15.2+cu117 \
+    --extra-index-url https://download.pytorch.org/whl/cu117
+
+RUN python3 -m pip install -e ".[standard]"
+
+RUN python3 -m pip uninstall -y mmcv mmcv-full mmdet mmengine && \
     python3 -m pip install mmcv==2.0.0 \
       -f https://download.openmmlab.com/mmcv/dist/cu117/torch2.0/index.html && \
-    python3 -m pip install "mmengine>=0.7.1,<1.0.0" "mmdet==3.3.0" && \
-    python3 -m pip install -e ".[standard,inference]"
+    python3 -m pip install "mmengine>=0.7.1,<1.0.0" "mmdet==3.3.0"
 
 RUN python3 -m pip install git+https://github.com/facebookresearch/detectron2.git && \
     git submodule update --init && \

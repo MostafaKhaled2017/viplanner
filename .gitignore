@@ -6,7 +6,9 @@ ros/planner/models/*
 *beat_the_planner*
 
 info.md
-AGENTS.md
+AGENTS.md\
+
+cuda-*
 
 ref
 

@@ -1,12 +1,21 @@
 FROM osrf/ros:noetic-desktop-full
 
+ENV DEBIAN_FRONTEND=noninteractive
+ENV CUDA_HOME=/usr/local/cuda
+ENV PATH="${CUDA_HOME}/bin:${PATH}"
+ENV ROS_VERSION=1
+
 RUN apt-get update && \
-    DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+    apt-get install -y --no-install-recommends \
     git \
     python3 \
+    python3-pip \
     python3-tk \
+    python3-rospy \
     unzip \
     wget \
+    gnupg \
+    ca-certificates \
     libusb-dev \
     build-essential \
     cmake \
@@ -22,7 +31,37 @@ RUN apt-get update && \
     ros-${ROS_DISTRO}-libg2o && \
     rm -rf /var/lib/apt/lists/*
 
-# Create conda environment and install additional Python dependencies
-WORKDIR /workspaces/iPlanner_ws
+RUN wget https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2004/x86_64/cuda-keyring_1.0-1_all.deb && \
+    dpkg -i cuda-keyring_1.0-1_all.deb && \
+    rm cuda-keyring_1.0-1_all.deb && \
+    apt-get update && \
+    apt-get install -y --no-install-recommends cuda-toolkit-12-1 && \
+    rm -rf /var/lib/apt/lists/*
 
 RUN update-alternatives --install /usr/bin/python python /usr/bin/python3 1
+
+WORKDIR /workspaces/viplanner
+COPY . /workspaces/viplanner
+
+RUN python3 -m pip install --upgrade pip && \
+    python3 -m pip install zmq && \
+    python3 -m pip install torch==2.0.1 torchvision==0.15.2 \
+      --index-url https://download.pytorch.org/whl/cu117 && \
+    python3 -m pip install mmcv==2.0.0 \
+      -f https://download.openmmlab.com/mmcv/dist/cu117/torch2.0/index.html && \
+    python3 -m pip install "mmengine>=0.7.1,<1.0.0" "mmdet==3.3.0" && \
+    python3 -m pip install -e ".[standard,inference]"
+
+RUN python3 -m pip install git+https://github.com/facebookresearch/detectron2.git && \
+    git submodule update --init && \
+    python3 -m pip install -r viplanner/third_party/mask2former/requirements.txt
+
+WORKDIR /workspaces/viplanner/viplanner/third_party/mask2former/mask2former/modeling/pixel_decoder/ops
+RUN sh make.sh
+
+WORKDIR /workspaces/viplanner
+
+RUN printf '%s\n' \
+    'source /opt/ros/noetic/setup.bash' \
+    '[ -f /workspaces/viplanner/devel/setup.bash ] && source /workspaces/viplanner/devel/setup.bash' \
+    >> /etc/bash.bashrc

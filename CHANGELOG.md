@@ -1,3 +1,31 @@
+## 2026-05-18 05:24 - Integrate environment install into devcontainer image
+
+**Change size**
+- `M`
+
+**Files changed**
+- `.devcontainer/Dockerfile`
+- `CHANGELOG.md`
+
+**What changed**
+- Added CUDA toolkit repository setup and installation to the devcontainer image build.
+- Added Python package installation steps from `install_environment.bash`, including editable ViPlanner extras, Detectron2, Mask2Former requirements, and Mask2Former custom op compilation.
+- Added environment variables and shell initialization for CUDA and ROS setup.
+- Changed the devcontainer workspace path from `/workspaces/iPlanner_ws` to `/workspaces/viplanner` so image build commands match the repository path.
+
+**Context**
+- The environment setup script was separate from the devcontainer image, requiring manual execution after container creation.
+- Folding the setup into the Dockerfile makes the development container more reproducible and closer to the expected runtime environment.
+
+**Validation**
+- `git diff --check -- .devcontainer/Dockerfile CHANGELOG.md`
+- Reviewed `.devcontainer/Dockerfile` and `CHANGELOG.md` after editing.
+- Full Docker image build was not run because it requires large network downloads and CUDA/Python dependency installation.
+
+**Notes**
+- `git submodule update --init` during Docker build expects the build context to include the repository metadata.
+- `/workspaces/viplanner/devel/setup.bash` is sourced only if it exists, because the catkin workspace may not be built when the image is created.
+
 ## 2026-05-17 08:54 - Fix depth-only training cost map selection
 
 **Files changed**

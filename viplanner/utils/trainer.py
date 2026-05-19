@@ -8,7 +8,8 @@ import contextlib
 
 # python
 import os
-from typing import List, Optional, Tuple
+from pathlib import Path
+from typing import Dict, List, Optional, Tuple
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -16,14 +17,10 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 import torch.utils.data as Data
+from torch.utils.tensorboard import SummaryWriter
 import torchvision.transforms as transforms
 import tqdm
 import yaml
-
-try:
-    import wandb  # logging
-except (ImportError, ModuleNotFoundError):
-    wandb = None
 
 # imperative-planning-learning
 from viplanner.config import TrainCfg
@@ -46,12 +43,26 @@ class Trainer:
     VIPlanner Trainer
     """
 
+    _LOSS_LOG_ORDER = (
+        ("00_total_loss", None),
+        ("01_height_loss", "height_loss"),
+        ("02_obstacle_loss", "obstacle_loss"),
+        ("03_goal_loss", "goal_loss"),
+        ("04_motion_loss", "motion_loss"),
+        ("05_trajectory_loss", "trajectory_loss"),
+        ("06_collision_loss", "collision_loss"),
+    )
+
     def __init__(self, cfg: TrainCfg) -> None:
         self._cfg = cfg
 
         # set model save/load path
         os.makedirs(self._cfg.curr_model_dir, exist_ok=True)
         self.model_path = os.path.join(self._cfg.curr_model_dir, "model.pt")
+        self.config_path = os.path.join(self._cfg.curr_model_dir, "model.yaml")
+        self.log_path = os.path.join(self._cfg.log_dir, self._cfg.get_model_save())
+        self.log_writer: Optional[SummaryWriter] = None
+        self._write_config_snapshot()
         if self._cfg.hierarchical:
             self.model_dir_hierarch = os.path.join(self._cfg.curr_model_dir, "hierarchical")
             os.makedirs(self.model_dir_hierarch, exist_ok=True)
@@ -92,7 +103,9 @@ class Trainer:
         # init logging
         self._init_logging()
         # load model and prepare model for training
-        self._load_model(self._cfg.resume)
+        if self._cfg.resume and self._cfg.resume_model_path is None:
+            raise ValueError("Resuming training requires --resume-from or TrainCfg.resume_model_path")
+        self._load_model(self._cfg.resume, checkpoint_path=self._cfg.resume_model_path)
         self._configure_optimizer()
 
         # get dataloader for training
@@ -103,17 +116,11 @@ class Trainer:
         else:
             train_loader_list, val_loader_list = self._get_dataloader()
 
-        if wandb is not None:
-            try:
-                wandb.watch(self.net)
-            except Exception:
-                print("[WARNING] Wandb model watch failed")
-        else:
-            print("[WARNING] Wandb model watch failed")
-
+        early_stop_counter = 0
         for epoch in range(self._cfg.epochs):
             train_loss = 0
             val_loss = 0
+            self._reset_epoch_loss_metrics()
             for i in range(len(train_loader_list)):
                 train_loss += self._train_epoch(train_loader_list[i], epoch, env_id=i)
                 val_loss += self._test_epoch(val_loader_list[i], env_id=i, epoch=epoch)
@@ -121,29 +128,37 @@ class Trainer:
             train_loss /= len(train_loader_list)
             val_loss /= len(train_loader_list)
 
-            if wandb is not None:
-                try:
-                    wandb.log(
-                        {
-                            "train_loss": train_loss,
-                            "val_loss": val_loss,
-                            "epoch": epoch,
-                        }
-                    )
-                except Exception:
-                    print("[WARNING] Wandb logging failed")
-            else:
-                print("[WARNING] Wandb logging failed")
+            self._log_epoch_loss_metrics(
+                dataset="train",
+                total_loss=train_loss,
+                component_metrics=self._collect_epoch_loss_metrics("train"),
+                epoch=epoch,
+            )
+            self._log_epoch_loss_metrics(
+                dataset="val",
+                total_loss=val_loss,
+                component_metrics=self._collect_epoch_loss_metrics("val"),
+                epoch=epoch,
+            )
+            self._flush_logging()
 
-            # if val_loss < best_loss:
             if val_loss < self.best_loss:
                 print("[INFO] Save model of epoch %d" % (epoch))
                 torch.save((self.net.state_dict(), val_loss), self.model_path)
                 self.best_loss = val_loss
+                early_stop_counter = 0
                 print("[INFO] Current val loss: %.4f" % (self.best_loss))
+            else:
+                early_stop_counter += 1
+                print(
+                    "[INFO] Early stopping counter: "
+                    f"{early_stop_counter}/{self._cfg.early_stop_patience}"
+                )
 
-            if self.scheduler.step(val_loss):
-                print("[INFO] Early Stopping!")
+            self.scheduler.step(val_loss)
+
+            if early_stop_counter >= self._cfg.early_stop_patience:
+                print("[INFO] Early stopping patience reached")
                 break
 
             if self._cfg.hierarchical and (epoch + 1) % self._cfg.hierarchical_step == 0:
@@ -209,22 +224,11 @@ class Trainer:
 
     def save_config(self) -> None:
         print(f"[INFO] val_loss: {self.best_loss:.2f}, test_loss," f"{self.test_loss:.4f}")
-        """ Save config and loss to file"""
-        path, _ = os.path.splitext(self.model_path)
-        yaml_path = path + ".yaml"
-        print(f"[INFO] Save config and loss to {yaml_path} file")
-
-        loss_dict = {"val_loss": self.best_loss, "test_loss": self.test_loss}
-        save_dict = {"config": vars(self._cfg), "loss": loss_dict}
-
-        # dump yaml
-        with open(yaml_path, "w+") as file:
-            yaml.dump(save_dict, file, allow_unicode=True, default_flow_style=False)
+        print(f"[INFO] Save config and loss to {self.config_path} file")
+        self._write_config_snapshot(loss={"val_loss": self.best_loss, "test_loss": self.test_loss})
 
         # logging
-        if wandb is not None:
-            with contextlib.suppress(Exception):
-                wandb.finish()
+        self._close_logging()
 
         # plot hierarchical losses
         if self._cfg.hierarchical:
@@ -242,6 +246,15 @@ class Trainer:
         return
 
     """PRIVATE METHODS"""
+
+    def _write_config_snapshot(self, loss: Optional[dict] = None) -> None:
+        save_dict = {"config": self._cfg.to_dict()}
+        if loss is not None:
+            save_dict["loss"] = loss
+
+        with open(self.config_path, "w") as file:
+            yaml.safe_dump(save_dict, file, allow_unicode=True, default_flow_style=False)
+        return
 
     # Helper function DATA
     def _load_data(self, train: bool = True) -> None:
@@ -297,28 +310,99 @@ class Trainer:
 
     # Helper function TRAINING
     def _init_logging(self) -> None:
-        if wandb is None:
-            print("[WARNING] Wandb not available")
-            return
-
-        # logging
-        os.environ["WANDB_API_KEY"] = self._cfg.wb_api_key
-        os.environ["WANDB_MODE"] = "online"
-        os.makedirs(self._cfg.log_dir, exist_ok=True)
-
-        try:
-            wandb.init(
-                project=self._cfg.wb_project,
-                entity=self._cfg.wb_entity,
-                name=self._cfg.get_model_save(),
-                config=self._cfg.__dict__,
-                dir=self._cfg.log_dir,
-            )
-        except Exception:
-            print("[WARNING: Wandb not available")
+        os.makedirs(self.log_path, exist_ok=True)
+        self.log_writer = SummaryWriter(log_dir=self.log_path, max_queue=10, flush_secs=10)
+        self.log_writer.add_custom_scalars(
+            {
+                "epoch_losses": {
+                    "train": ["Multiline", [f"train/{tag}" for tag, _ in self._LOSS_LOG_ORDER]],
+                    "val": ["Multiline", [f"val/{tag}" for tag, _ in self._LOSS_LOG_ORDER]],
+                }
+            }
+        )
+        print(f"[INFO] TensorBoard logs: {self.log_path}")
         return
 
-    def _load_model(self, resume: bool = False) -> None:
+    def _log_scalar(self, tag: str, value, step: int) -> None:
+        writer = getattr(self, "log_writer", None)
+        if writer is None:
+            return
+
+        if isinstance(value, torch.Tensor):
+            value = value.detach().item()
+        writer.add_scalar(tag, value, step)
+        return
+
+    def _flush_logging(self) -> None:
+        writer = getattr(self, "log_writer", None)
+        if writer is None:
+            return
+
+        writer.flush()
+        return
+
+    def _reset_epoch_loss_metrics(self) -> None:
+        for traj_cost in getattr(self, "data_traj_cost", []):
+            traj_cost.reset_loss_metrics("train")
+            traj_cost.reset_loss_metrics("val")
+        return
+
+    def _collect_epoch_loss_metrics(self, dataset: str) -> Dict[str, float]:
+        metric_sums: Dict[str, float] = {}
+        metric_count = 0
+
+        for traj_cost in getattr(self, "data_traj_cost", []):
+            metrics = traj_cost.get_loss_metrics(dataset)
+            if not metrics:
+                continue
+
+            for name, value in metrics.items():
+                metric_sums[name] = metric_sums.get(name, 0.0) + value
+            metric_count += 1
+
+        if metric_count == 0:
+            return {}
+
+        return {name: value / metric_count for name, value in metric_sums.items()}
+
+    def _log_epoch_loss_metrics(
+        self,
+        dataset: str,
+        total_loss: float,
+        component_metrics: Dict[str, float],
+        epoch: int,
+    ) -> None:
+        self._log_scalar(f"{dataset}/00_total_loss", total_loss, epoch)
+        for tag_name, metric_name in self._LOSS_LOG_ORDER[1:]:
+            if metric_name in component_metrics:
+                self._log_scalar(f"{dataset}/{tag_name}", component_metrics[metric_name], epoch)
+        return
+
+    def _close_logging(self) -> None:
+        writer = getattr(self, "log_writer", None)
+        if writer is None:
+            return
+
+        with contextlib.suppress(Exception):
+            writer.flush()
+            writer.close()
+        self.log_writer = None
+        return
+
+    @staticmethod
+    def _resolve_checkpoint_path(checkpoint_path: str) -> str:
+        path = Path(checkpoint_path)
+        if path.is_dir():
+            path = path / "model.pt"
+        if not path.is_file():
+            raise FileNotFoundError(f"Model checkpoint not found: {path}")
+        return str(path)
+
+    def _load_model(
+        self,
+        resume: bool = False,
+        checkpoint_path: Optional[str] = None,
+    ) -> None:
         if self._cfg.sem or self._cfg.rgb:
             if self._cfg.rgb and self._cfg.pre_train_sem:
                 assert PRE_TRAIN_POSSIBLE, (
@@ -350,9 +434,13 @@ class Trainer:
         print(f"[INFO] MODEL LOADED ({count_parameters(self.net)} parameters)")
 
         if resume:
-            model_state_dict, self.best_loss = torch.load(self.model_path)
+            load_path = self._resolve_checkpoint_path(checkpoint_path or self.model_path)
+            model_state_dict, self.best_loss = torch.load(load_path)
             self.net.load_state_dict(model_state_dict)
-            print(f"Resume train from {self.model_path} with loss " f"{self.best_loss}")
+            print(f"Resume train from {load_path} with loss " f"{self.best_loss}")
+            if checkpoint_path is not None and os.path.abspath(load_path) != os.path.abspath(self.model_path):
+                torch.save((self.net.state_dict(), self.best_loss), self.model_path)
+                print(f"[INFO] Save resume checkpoint copy to {self.model_path}")
 
         return
 
@@ -500,17 +588,14 @@ class Trainer:
             goal_flip = torch.clone(goal)
             goal_flip[inputs[4], 1] = goal_flip[inputs[4], 1] * -1
 
-            log_step = batch_idx + epoch * batches
             loss, _ = self._loss(
                 preds_flip,
                 fear,
                 self.data_traj_cost[env_id],
                 odom,
                 goal_flip,
-                log_step=log_step,
+                log_step=epoch,
             )
-            if wandb is not None:
-                wandb.log({"train_loss_step": loss}, step=log_step)
 
             loss.backward()
             self.optimizer.step()
@@ -555,19 +640,15 @@ class Trainer:
                 preds[inputs[4], :, 1] = preds[inputs[4], :, 1] * -1
                 goal[inputs[4], 1] = goal[inputs[4], 1] * -1
 
-                log_step = epoch * num_batches + batch_idx
                 loss, waypoints = self._loss(
                     preds,
                     fear,
                     self.data_traj_cost[env_id],
                     odom,
                     goal,
-                    log_step=log_step,
+                    log_step=epoch,
                     dataset=dataset,
                 )
-
-                if dataset == "val" and wandb is not None:
-                    wandb.log({f"{dataset}_loss_step": loss}, step=log_step)
 
                 test_loss += loss.item()
 

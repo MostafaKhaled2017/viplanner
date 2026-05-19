@@ -41,7 +41,8 @@ standard = [
     "pypose",
 ]
 training = [
-    "wandb>=0.15,<0.17",
+    "protobuf<5",
+    "tensorboard",
 ]
 jetson = [
     "torch==1.11",

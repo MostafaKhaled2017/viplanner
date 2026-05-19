@@ -4,7 +4,7 @@
 #
 # SPDX-License-Identifier: BSD-3-Clause
 
-from typing import Optional, Tuple
+from typing import Dict, Optional, Tuple
 
 import torch
 import torch.nn as nn
@@ -19,13 +19,20 @@ from .traj_opt import TrajOpt
 
 try:
     import pypose as pp  # only used for training
-    import wandb  # only used for training
-except ModuleNotFoundError or ImportError:  # eval in issac sim  # TODO: check if all can be installed in Isaac Sim
-    print("[Warning] pypose or wandb not found, only use for evaluation")
+except (ModuleNotFoundError, ImportError):  # eval in issac sim  # TODO: check if all can be installed in Isaac Sim
+    print("[Warning] pypose not found, only use for evaluation")
 
 
 class TrajCost:
     debug = False
+    loss_metric_names = (
+        "height_loss",
+        "obstacle_loss",
+        "goal_loss",
+        "motion_loss",
+        "trajectory_loss",
+        "collision_loss",
+    )
 
     def __init__(
         self,
@@ -61,6 +68,8 @@ class TrajCost:
 
         # logging
         self.log_data = log_data
+        self._loss_metric_sums: Dict[str, Dict[str, float]] = {}
+        self._loss_metric_counts: Dict[str, int] = {}
         return
 
     @staticmethod
@@ -154,38 +163,45 @@ class TrajCost:
         # Fear loss
         collision_probabilty_loss = nn.BCELoss()(fear, fear_labels.float())
 
-        # log
         if self.log_data:
-            try:
-                wandb.log(
-                    {f"Height Loss {dataset}": self.w_height * hloss},
-                    step=log_step,
-                )
-                wandb.log(
-                    {f"Obstacle Loss {dataset}": self.w_obs * oloss},
-                    step=log_step,
-                )
-                wandb.log(
-                    {f"Goal Loss {dataset}": self.w_goal * gloss},
-                    step=log_step,
-                )
-                wandb.log(
-                    {f"Motion Loss {dataset}": self.w_motion * mloss},
-                    step=log_step,
-                )
-                wandb.log(
-                    {f"Trajectory Loss {dataset}": trajectory_loss},
-                    step=log_step,
-                )
-                wandb.log(
-                    {f"Collision Loss {dataset}": collision_probabilty_loss},
-                    step=log_step,
-                )
-            except:  # noqa: E722
-                print("wandb log failed")
+            self._record_loss_metrics(
+                dataset,
+                {
+                    "height_loss": self.w_height * hloss,
+                    "obstacle_loss": self.w_obs * oloss,
+                    "goal_loss": self.w_goal * gloss,
+                    "motion_loss": self.w_motion * mloss,
+                    "trajectory_loss": trajectory_loss,
+                    "collision_loss": collision_probabilty_loss,
+                },
+            )
 
         # TODO: kinodynamics cost
         return collision_probabilty_loss + trajectory_loss
+
+    def reset_loss_metrics(self, dataset: str) -> None:
+        self._loss_metric_sums[dataset] = {name: 0.0 for name in self.loss_metric_names}
+        self._loss_metric_counts[dataset] = 0
+        return
+
+    def get_loss_metrics(self, dataset: str) -> Dict[str, float]:
+        count = self._loss_metric_counts.get(dataset, 0)
+        if count == 0:
+            return {}
+
+        return {
+            name: value / count
+            for name, value in self._loss_metric_sums.get(dataset, {}).items()
+        }
+
+    def _record_loss_metrics(self, dataset: str, metrics: Dict[str, torch.Tensor]) -> None:
+        if dataset not in self._loss_metric_sums:
+            self.reset_loss_metrics(dataset)
+
+        for name, value in metrics.items():
+            self._loss_metric_sums[dataset][name] += value.detach().item()
+        self._loss_metric_counts[dataset] += 1
+        return
 
     def obs_cost_eval(self, odom: torch.Tensor, waypoints: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
         """Compute Obstacle Loss for eval_sim_static script!

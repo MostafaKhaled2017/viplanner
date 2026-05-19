@@ -7,9 +7,10 @@
 import os
 
 # python
-from dataclasses import dataclass, field
+from dataclasses import asdict, dataclass, field
+from datetime import datetime
 from pathlib import Path
-from typing import List, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 import yaml
 
@@ -33,6 +34,14 @@ Loader.add_constructor(
     "tag:yaml.org,2002:python/object:viplanner.config.learning_cfg.DataCfg",
     construct_datacfg,
 )
+
+
+def _to_yaml_safe(value):
+    if isinstance(value, dict):
+        return {key: _to_yaml_safe(item) for key, item in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [_to_yaml_safe(item) for item in value]
+    return value
 
 
 @dataclass
@@ -171,6 +180,10 @@ class TrainCfg:
     # training configurations
     resume: bool = False
     "resume training"
+    resume_model_path: Optional[str] = None
+    "checkpoint file or model directory to resume from"
+    model_dir_name: Optional[str] = None
+    "timestamp-based model directory name, generated when not provided"
     epochs: int = 100
     "number of training epochs"
     batch_size: int = 64
@@ -190,6 +203,8 @@ class TrainCfg:
     "minimum lr for ReduceLROnPlateau"
     patience: int = 3
     "patience of epochs for ReduceLROnPlateau"
+    early_stop_patience: int = 10
+    "number of epochs without validation improvement before stopping training"
     optimizer: str = "sgd"  # either adam or sgd
     "optimizer"
     momentum: float = 0.1
@@ -203,20 +218,27 @@ class TrainCfg:
     n_visualize: int = 15
     "number of trajectories that are visualized"
 
-    # logging configurations
-    wb_project: str = "Matterport"
-    wb_entity: str = "viplanner"
-    wb_api_key: str = "enter_your_key_here"
-
     # functions
+    def ensure_model_dir_name(self) -> str:
+        if getattr(self, "_model_dir_name_reserved", False):
+            return self.model_dir_name
+
+        base_name = self.model_dir_name or datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+        candidate = base_name
+        suffix = 1
+        while os.path.exists(os.path.join(self.all_model_dir, candidate)):
+            candidate = f"{base_name}_{suffix:02d}"
+            suffix += 1
+
+        self.model_dir_name = candidate
+        self._model_dir_name_reserved = True
+        return self.model_dir_name
+
     def get_model_save(self, epoch: Optional[int] = None):
-        input_domain = "DepSem" if self.sem else "Dep"
-        cost_name = "Geom" if self.cost_map_name == "cost_map_geom" else "Sem"
-        optim = "SGD" if self.optimizer == "sgd" else "Adam"
-        name = f"_{self.file_name}" if self.file_name is not None else ""
-        epoch = epoch if epoch is not None else self.epochs
-        hierarch = "_hierarch" if self.hierarchical else ""
-        return f"plannernet_env{self.env_list[0]}_ep{epoch}_input{input_domain}_cost{cost_name}_optim{optim}{hierarch}{name}"
+        return self.ensure_model_dir_name()
+
+    def to_dict(self) -> Dict[str, Any]:
+        return _to_yaml_safe(asdict(self))
 
     @property
     def all_model_dir(self):
@@ -224,7 +246,7 @@ class TrainCfg:
 
     @property
     def curr_model_dir(self):
-        return os.path.join(self.all_model_dir, self.get_model_save())
+        return os.path.join(self.all_model_dir, self.ensure_model_dir_name())
 
     @property
     def data_dir(self):
@@ -241,6 +263,9 @@ class TrainCfg:
             cfg_dict = yaml.load(f, Loader=Loader)
 
         config = dict(cfg_dict["config"])
+        for legacy_key in ("wb_project", "wb_entity", "wb_api_key"):
+            config.pop(legacy_key, None)
+
         data_cfg = config.get("data_cfg")
 
         if isinstance(data_cfg, dict):

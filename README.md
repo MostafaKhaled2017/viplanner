@@ -33,7 +33,7 @@ Furthermore, a ready-to-use [ROS Noetic](http://wiki.ros.org/noetic) package is 
   ```bash
   python3 -m pip install -e .[standard,inference]
   ```
-  To enable Weights & Biases logging during training, install:
+  To enable TensorBoard logging during training, install:
   ```bash
   python3 -m pip install -e .[standard,training]
   ```
@@ -60,6 +60,13 @@ Furthermore, a ready-to-use [ROS Noetic](http://wiki.ros.org/noetic) package is 
   ```
 - `pip install -r third_party/mask2former/requirements.txt` fails with `Invalid version: '1.1-linux32'`:
   - use `python3 -m pip` instead of `/usr/bin/pip`, since Ubuntu/ROS images often ship an older system `pip` resolver that crashes on malformed package metadata from PyPI.
+- TensorBoard fails with `MessageToJson() got an unexpected keyword argument 'including_default_value_fields'`:
+  - this is a TensorBoard 2.14.x and protobuf 5.x compatibility issue. Install the training extra or downgrade protobuf below 5 in the same Python environment used to launch TensorBoard:
+  ```bash
+  python3 -m pip install -e .[training]
+  python3 -m pip install "protobuf<5"
+  python3 -m pip show tensorboard protobuf
+  ```
 
 **Extension**
 

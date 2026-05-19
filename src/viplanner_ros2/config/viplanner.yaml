@@ -1,0 +1,35 @@
+/**:
+  ros__parameters:
+    main_freq: 5
+    verbose: false
+
+    model_save: ""
+
+    depth_topic: /rgbd_camera/depth/image
+    rgb_topic: /rgbd_camera/color/image
+    rgb_compressed: false
+    goal_topic: /way_point
+    path_topic: /viplanner/path
+
+    robot_id: base_link
+    world_id: odom
+    mount_cam_frame: ""
+
+    depth_uint_type: false
+    max_depth: 15.0
+    image_flip: false
+    conv_dist: 0.5
+
+    m2f_config_path: ""
+    m2f_model_path: ""
+    m2f_device: cuda:0
+
+    is_fear_act: true
+    fear_threshold: 0.7
+    buffer_size: 3
+    angular_thread: 0.3
+    track_dist: 0.5
+    joyGoal_scale: 2.5
+
+    subgoal_max_distance: 20.0
+    subgoal_update_distance: 7.0

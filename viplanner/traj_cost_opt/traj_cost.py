@@ -105,6 +105,7 @@ class TrajCost:
         log_step: int,
         ahead_dist: float,
         dataset: str = "train",
+        context: str = "",
     ):
         batch_size, num_p, _ = waypoints.shape
 
@@ -161,6 +162,7 @@ class TrajCost:
         fear_labels = fear_labels > self.obstalce_thread + self.neg_reward[2]
         fear_labels = torch.any(fear_labels.reshape(3, batch_size).T, dim=1, keepdim=True).to(torch.float32)
         # Fear loss
+        fear = self._prepare_fear_probabilities(fear, context=context)
         collision_probabilty_loss = nn.BCELoss()(fear, fear_labels.float())
 
         if self.log_data:
@@ -178,6 +180,25 @@ class TrajCost:
 
         # TODO: kinodynamics cost
         return collision_probabilty_loss + trajectory_loss
+
+    @staticmethod
+    def _prepare_fear_probabilities(
+        fear: torch.Tensor,
+        context: str = "",
+        eps: float = 1e-6,
+    ) -> torch.Tensor:
+        if not torch.isfinite(fear).all().item():
+            finite_fear = fear[torch.isfinite(fear)]
+            if finite_fear.numel() > 0:
+                min_value = finite_fear.min().item()
+                max_value = finite_fear.max().item()
+                value_range = f"finite range [{min_value:.6g}, {max_value:.6g}]"
+            else:
+                value_range = "no finite values"
+            suffix = f" ({context})" if context else ""
+            raise ValueError(f"Fear prediction contains NaN or Inf values{suffix}; {value_range}")
+
+        return fear.clamp(min=eps, max=1.0 - eps)
 
     def reset_loss_metrics(self, dataset: str) -> None:
         self._loss_metric_sums[dataset] = {name: 0.0 for name in self.loss_metric_names}

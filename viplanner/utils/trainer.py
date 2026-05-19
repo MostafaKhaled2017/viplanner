@@ -595,6 +595,7 @@ class Trainer:
                 odom,
                 goal_flip,
                 log_step=epoch,
+                context=f"dataset=train, epoch={epoch}, env_id={env_id}, batch_idx={batch_idx}",
             )
 
             loss.backward()
@@ -648,6 +649,7 @@ class Trainer:
                     goal,
                     log_step=epoch,
                     dataset=dataset,
+                    context=f"dataset={dataset}, epoch={epoch}, env_id={env_id}, batch_idx={batch_idx}",
                 )
 
                 test_loss += loss.item()
@@ -705,6 +707,7 @@ class Trainer:
         log_step: int,
         step: float = 0.1,
         dataset: str = "train",
+        context: str = "",
     ) -> Tuple[torch.Tensor, torch.Tensor]:
         waypoints = traj_cost.opt.TrajGeneratorFromPFreeRot(preds, step=step)
         loss = traj_cost.CostofTraj(
@@ -715,7 +718,11 @@ class Trainer:
             log_step,
             ahead_dist=self._cfg.fear_ahead_dist,
             dataset=dataset,
+            context=context,
         )
+        if not torch.isfinite(loss).all().item():
+            suffix = f" ({context})" if context else ""
+            raise ValueError(f"Training loss contains NaN or Inf values{suffix}")
 
         return loss, waypoints
 

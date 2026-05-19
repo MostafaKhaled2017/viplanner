@@ -21,6 +21,7 @@
 - Grouped TensorBoard scalar tags under `train/...` and `val/...`, and flushed the writer after each epoch.
 - Made train and validation scalar steps monotonic across environments to avoid repeated TensorBoard x-axis steps.
 - Changed TensorBoard logging to write training and validation metrics only at epoch end, with total loss logged before component losses.
+- Added pre-BCELoss validation for non-finite fear predictions, final loss validation before backward, and clamped valid probabilities to avoid CUDA device-side asserts.
 - Removed unused `wb_project`, `wb_entity`, and `wb_api_key` training config fields while preserving compatibility with YAML files that still contain them.
 - Updated the default training YAML, training dependency extra, documentation, and focused tests for TensorBoard logging.
 

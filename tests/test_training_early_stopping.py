@@ -4,8 +4,10 @@ from pathlib import Path
 from types import SimpleNamespace
 
 import yaml
+import torch
 
 from viplanner.config import TrainCfg
+from viplanner.traj_cost_opt.traj_cost import TrajCost
 
 try:
     from viplanner.utils.trainer import Trainer
@@ -137,6 +139,20 @@ class TrainingEarlyStoppingTest(unittest.TestCase):
                 "train/06_collision_loss",
             ],
         )
+
+    def test_fear_probability_guard_rejects_non_finite_values_before_bce(self):
+        fear = torch.tensor([[float("nan")], [0.5]])
+
+        with self.assertRaisesRegex(ValueError, "epoch=1"):
+            TrajCost._prepare_fear_probabilities(fear, context="epoch=1")
+
+    def test_fear_probability_guard_clamps_valid_probabilities(self):
+        fear = torch.tensor([[0.0], [0.5], [1.0]])
+
+        clamped = TrajCost._prepare_fear_probabilities(fear)
+
+        self.assertGreater(float(clamped.min()), 0.0)
+        self.assertLess(float(clamped.max()), 1.0)
 
 
 if __name__ == "__main__":

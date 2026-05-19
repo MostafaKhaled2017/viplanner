@@ -23,6 +23,20 @@ def _parse_args() -> argparse.Namespace:
         default="viplanner/config/train.yaml",
         help="Path to a training YAML config file.",
     )
+    visual_group = parser.add_mutually_exclusive_group()
+    visual_group.add_argument(
+        "--show-test-visualizations",
+        dest="show_test_visualizations",
+        action="store_true",
+        default=None,
+        help="Show visualizations during the post-training test run.",
+    )
+    visual_group.add_argument(
+        "--no-test-visualizations",
+        dest="show_test_visualizations",
+        action="store_false",
+        help="Disable visualizations during the post-training test run.",
+    )
     return parser.parse_args()
 
 
@@ -31,6 +45,6 @@ if __name__ == "__main__":
     cfg: TrainCfg = TrainCfg.from_yaml(args.config)
     trainer = Trainer(cfg)
     trainer.train()
-    trainer.test()
+    trainer.test(show_visualizations=args.show_test_visualizations)
     trainer.save_config()
     torch.cuda.empty_cache()

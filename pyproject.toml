@@ -7,7 +7,7 @@ name = "viplanner"
 version = "0.1.0"
 description = "Visual Imperative Planner for Legged Robots"
 authors = [{name = "Pascal Roth", email = "rothpa@ethz.ch"}]
-license = {file = "LICENSE.txt"}
+license = {file = "LICENSE"}
 readme = "README.md"
 requires-python = ">=3.7"
 keywords = ["robotics", "planning", "legged-robots"]

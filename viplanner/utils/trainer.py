@@ -174,8 +174,12 @@ class Trainer:
         self.data_traj_viz = []
         return
 
-    def test(self, step: Optional[int] = None) -> None:
-        print("[INFO] Start Training")
+    def test(
+        self,
+        step: Optional[int] = None,
+        show_visualizations: Optional[bool] = None,
+    ) -> None:
+        print("[INFO] Start Testing")
         # set random seed for reproducibility
         torch.manual_seed(self._cfg.seed)
 
@@ -188,11 +192,13 @@ class Trainer:
         # get dataloader for training
         self._load_data(train=False)
         _, test_loader = self._get_dataloader(train=False, step=step)
+        if show_visualizations is None:
+            show_visualizations = not os.getenv("EXPERIMENT_DIRECTORY")
 
         self.test_loss = self._test_epoch(
             test_loader[0],
             env_id=0,
-            is_visual=not os.getenv("EXPERIMENT_DIRECTORY"),
+            is_visual=show_visualizations,
             fov_angle=self.data_generators[0].alpha_fov,
             dataset="test",
         )

@@ -17,7 +17,7 @@ python viplanner/cost_builder.py --config viplanner/config/costmap.yaml
 
 # Run training
 # Adjust configs in viplanner/config/train.yaml
-python viplanner/train.py
+python viplanner/train.py --config viplanner/config/train.yaml --no-test-visualizations
 
 # Generate Sementics from RGB
 python3 viplanner/generate_semantics.py \

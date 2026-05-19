@@ -56,7 +56,7 @@ RUN python3 -m pip install \
     torchvision==0.15.2+cu117 \
     --extra-index-url https://download.pytorch.org/whl/cu117
 
-RUN python3 -m pip install -e ".[standard]"
+RUN python3 -m pip install -e ".[standard,training]"
 
 RUN python3 -m pip uninstall -y mmcv mmcv-full mmdet mmengine && \
     python3 -m pip install mmcv==2.0.0 \
@@ -66,6 +66,8 @@ RUN python3 -m pip uninstall -y mmcv mmcv-full mmdet mmengine && \
 RUN python3 -m pip install git+https://github.com/facebookresearch/detectron2.git && \
     git submodule update --init && \
     python3 -m pip install -r viplanner/third_party/mask2former/requirements.txt
+
+RUN python3 -m pip install "protobuf<5"
 
 WORKDIR /workspaces/viplanner/viplanner/third_party/mask2former/mask2former/modeling/pixel_decoder/ops
 RUN sh make.sh

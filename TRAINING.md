@@ -102,12 +102,28 @@ file_path                                       # TrainCfg.file_path or env vari
 ├── data
 │   ├── env_name                                # structure as defined in Cost-Map Building
 ├── models
-│   ├── model_name
-│   |   ├── model.pth                           # trained model
+│   ├── YYYY-MM-DD_HH-MM-SS
+│   |   ├── model.pt                            # trained model
 │   |   ├── model.yaml                          # TrainCfg used to train model
 ├── logs
-│   ├── model_name
+│   ├── YYYY-MM-DD_HH-MM-SS
 ```
 
-It is important that the model name is unique, otherwise the previous training will be overwritten.
+The timestamp directory is generated at the start of a run. If a directory with the same timestamp already exists,
+the trainer appends a suffix such as `_01` to avoid overwriting previous results.
 Also always copy the `model.pt` and `model.yaml` because the configs are necessary to reload the model.
+Training metrics are written as TensorBoard event files under the matching timestamped `logs` directory at the end of
+each epoch. Scalars use `train/...` and `val/...` tag groups, with total loss logged before individual loss components.
+To inspect them, run:
+
+``` bash
+tensorboard --logdir <file_path-or-EXPERIMENT_DIRECTORY>/logs
+```
+
+To resume from an existing run while saving outputs into a new timestamped directory, pass either the previous model
+directory or checkpoint file:
+
+``` bash
+python viplanner/train.py --resume-from file_path/models/YYYY-MM-DD_HH-MM-SS
+python viplanner/train.py --resume-from file_path/models/YYYY-MM-DD_HH-MM-SS/model.pt
+```

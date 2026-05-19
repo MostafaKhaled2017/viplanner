@@ -18,9 +18,15 @@ log
 
 data
 
+sim
+
+AGENTS.md
+
 models
 
 Documentation.md
+
+CHANGELOG.md
 
 # nvidia jetson apt list files
 bin/packages/nvidia*

@@ -19,6 +19,14 @@ python viplanner/cost_builder.py --config viplanner/config/costmap.yaml
 # Adjust configs in viplanner/config/train.yaml
 python viplanner/train.py --config viplanner/config/train.yaml --no-test-visualizations
 
+# Running tensorboard
+tensorboard --logdir src/planner/logs --port 6006 --bind_all
+
+python3 viplanner/tune_train.py \
+  --sweep-config tuning/sweep_depth_geom.yaml \
+  --gpus 1,2 \
+  --max-parallel 4 \
+
 # Generate Sementics from RGB
 python3 viplanner/generate_semantics.py \
       --input /workspaces/viplanner/src/planner/data/forest_s1 \

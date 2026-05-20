@@ -1,9 +1,10 @@
-## 2026-05-20 06:50 - Make ROS2 TF lookups simulation-time tolerant
+## 2026-05-20 07:14 - Align ROS2 VIPlanner TF lookup timing with reference package
 
 **Change size**
 - `S`
 
 **Files changed**
+- `src/viplanner_ros2/README.md`
 - `src/viplanner_ros2/config/viplanner.yaml`
 - `src/viplanner_ros2/viplanner_ros2/planning_utils.py`
 - `src/viplanner_ros2/viplanner_ros2/viplanner_node.py`
@@ -13,20 +14,22 @@
 **What changed**
 - Enabled `use_sim_time` in the ROS2 VIPlanner package config so the node uses the simulator clock when `/clock` is available.
 - Passed the node clock into the TF buffer when supported so TF cache behavior follows the node's configured time source.
-- Added a guarded fallback for TF future-extrapolation failures: exact timestamp lookups are still attempted first, but the node retries with the latest available transform when sensor stamps are ahead of the received TF data.
+- Switched goal and camera-frame transforms to use the latest available TF transform, matching `ref/iplanner` and avoiding repeated future-extrapolation warnings when image stamps run slightly ahead of buffered TF data.
 - Added small ROS timestamp helper functions and focused unit coverage for their comparison behavior.
+- Documented the latest-transform policy in the ROS2 package README.
 
 **Context**
-- Depth image timestamps and `world -> d1_base_link` TF timestamps can arrive in different time states during simulation, causing goal transforms to fail with future extrapolation before inference.
-- The path should still be generated in the robot/body frame, but goal and camera transforms must use a time source compatible with the simulator.
+- Depth image timestamps and `world -> d1_base_link` TF timestamps can arrive in different time states during simulation, causing exact-time goal transforms to fail with future extrapolation before inference.
+- A guarded fallback allowed inference to continue, but it still produced throttled warnings whenever the stamped lookup missed the newest TF sample.
+- The reference iPlanner ROS2 package uses latest available transforms for these operations, which is more tolerant of simulator and callback scheduling jitter while keeping the path in the robot/body frame.
 
 **Validation**
 - `python3 -m unittest tests.test_viplanner_ros2_package`
 - `python3 -m py_compile src/viplanner_ros2/viplanner_ros2/viplanner_node.py src/viplanner_ros2/viplanner_ros2/planning_utils.py tests/test_viplanner_ros2_package.py`
-- `git diff --check -- src/viplanner_ros2/viplanner_ros2/viplanner_node.py src/viplanner_ros2/viplanner_ros2/planning_utils.py src/viplanner_ros2/config/viplanner.yaml tests/test_viplanner_ros2_package.py CHANGELOG.md`
+- `git diff --check -- src/viplanner_ros2/viplanner_ros2/viplanner_node.py src/viplanner_ros2/README.md CHANGELOG.md`
 
 **Notes**
-- The latest-transform fallback is limited to future-time failures and sensor stamps that are ahead of the node clock; unrelated TF lookup failures still surface as errors.
+- TF lookup failures other than unavailable transforms still surface as errors from the underlying TF buffer.
 - ROS2 distributions whose Python TF buffer does not accept a node argument fall back to the previous buffer construction path.
 
 ## 2026-05-19 21:25 - Add YAML-driven training tuning launcher

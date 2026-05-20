@@ -120,6 +120,21 @@ To inspect them, run:
 tensorboard --logdir <file_path-or-EXPERIMENT_DIRECTORY>/logs
 ```
 
+If TensorBoard 2.14.x fails with `MessageToJson() got an unexpected keyword argument
+'including_default_value_fields'`, check the protobuf version in the same Python environment:
+
+``` bash
+python3 -m pip show tensorboard protobuf
+```
+
+TensorBoard 2.14.x expects the protobuf 4.x JSON API for its HParams plugin. Install the training extra or
+downgrade protobuf below 5 before starting TensorBoard:
+
+``` bash
+python3 -m pip install -e .[training]
+python3 -m pip install "protobuf<5"
+```
+
 To resume from an existing run while saving outputs into a new timestamped directory, pass either the previous model
 directory or checkpoint file:
 

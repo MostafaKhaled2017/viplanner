@@ -133,3 +133,4 @@ RGB and semantic images are expected to be aligned with the depth stream for the
 - ONNX checkpoints are not supported; use the PyTorch `model.pt` saved by `viplanner/train.py`.
 - Semantic dependencies are optional until a semantic checkpoint is used.
 - For reproducible evaluation, use the same camera orientation, depth scaling, and image size assumptions used during training.
+- Goal and camera transforms use the latest available TF transform, matching `ref/iplanner` and avoiding future-extrapolation warnings when image stamps run slightly ahead of buffered TF data.

@@ -3,16 +3,20 @@
     main_freq: 5
     verbose: false
 
-    model_save: ""
+    model_save: "/workspaces/drone_ws/perception_planning/ros_ws/viplanner_ros2/models/2026-05-19_07-36-47"
 
-    depth_topic: /rgbd_camera/depth/image
-    rgb_topic: /rgbd_camera/color/image
-    rgb_compressed: false
+    depth_topic: /drone_1/depth
+    depth_width: 640
+    depth_height: 360
+    rgb_topic: /drone_1/cam/compressed
+    rgb_width: 640
+    rgb_height: 360
+    rgb_compressed: true
     goal_topic: /way_point
-    path_topic: /viplanner/path
+    path_topic: /drone_1/path_follow
 
-    robot_id: base_link
-    world_id: odom
+    robot_id: d1_base_link
+    world_id: world
     mount_cam_frame: ""
 
     depth_uint_type: false
@@ -24,7 +28,7 @@
     m2f_model_path: ""
     m2f_device: cuda:0
 
-    is_fear_act: true
+    is_fear_act: false
     fear_threshold: 0.7
     buffer_size: 3
     angular_thread: 0.3

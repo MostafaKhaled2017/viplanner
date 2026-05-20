@@ -112,6 +112,14 @@ class VIPlannerInference:
         image_t = self.transforms(image)
         return image_t.unsqueeze(0).to(self.device)
 
+    def sem_rgb_converter(self, image: np.ndarray) -> torch.Tensor:
+        if self.train_cfg.rgb:
+            image = (image.astype(np.float32) - self.pixel_mean) / self.pixel_std
+        else:
+            image = image.astype(np.uint8)
+        image_t = self.transforms(image)
+        return image_t.unsqueeze(0).to(self.device).float()
+
     def plan_depth(self, depth_image: np.ndarray, goal_robot_frame: torch.Tensor):
         with torch.no_grad():
             depth = self.img_converter(depth_image).float()
@@ -122,9 +130,7 @@ class VIPlannerInference:
     def plan(self, depth_image: np.ndarray, sem_rgb_image: np.ndarray, goal_robot_frame: torch.Tensor):
         with torch.no_grad():
             depth = self.img_converter(depth_image).float()
-            if self.train_cfg.rgb:
-                sem_rgb_image = (sem_rgb_image.astype(np.float32) - self.pixel_mean) / self.pixel_std
-            sem_rgb = self.img_converter(sem_rgb_image.astype(np.uint8)).float()
+            sem_rgb = self.sem_rgb_converter(sem_rgb_image)
             keypoints, fear = self.net(depth, sem_rgb, goal_robot_frame.to(self.device))
         traj = self.traj_generate.TrajGeneratorFromPFreeRot(keypoints, step=0.1)
         return keypoints, traj, fear

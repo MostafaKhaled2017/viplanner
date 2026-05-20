@@ -12,8 +12,14 @@ import yaml
 PKG_ROOT = Path(__file__).resolve().parents[1] / "src" / "viplanner_ros2"
 sys.path.insert(0, str(PKG_ROOT))
 
-from viplanner_ros2.image_utils import depth_msg_to_numpy, prepare_depth_image  # noqa: E402
-from viplanner_ros2.inference import extract_state_dict, resolve_model_files  # noqa: E402
+from viplanner_ros2.image_utils import (  # noqa: E402
+    depth_msg_to_numpy,
+    prepare_depth_image,
+    rgb_msg_to_numpy,
+    validate_array_dimensions,
+    validate_message_dimensions,
+)
+from viplanner_ros2.inference import VIPlannerInference, extract_state_dict, resolve_model_files  # noqa: E402
 from viplanner_ros2.learning_cfg import TrainCfg  # noqa: E402
 from viplanner_ros2.planning_utils import FearState, clip_goal_xy, is_forward_tracking  # noqa: E402
 
@@ -62,6 +68,40 @@ class VIPlannerRos2PackageTest(unittest.TestCase):
         msg_bad = SimpleNamespace(height=1, width=1, encoding="mono8", data=b"\0")
         with self.assertRaises(RuntimeError):
             depth_msg_to_numpy(msg_bad)
+
+    def test_rgb_image_conversion_returns_training_rgb_order(self):
+        rgb_pixel = np.array([[[10, 20, 30]]], dtype=np.uint8)
+        msg_rgb = SimpleNamespace(height=1, width=1, encoding="rgb8", data=rgb_pixel.tobytes())
+        np.testing.assert_array_equal(rgb_msg_to_numpy(msg_rgb), rgb_pixel)
+
+        bgr_pixel = np.array([[[30, 20, 10]]], dtype=np.uint8)
+        msg_bgr = SimpleNamespace(height=1, width=1, encoding="bgr8", data=bgr_pixel.tobytes())
+        np.testing.assert_array_equal(rgb_msg_to_numpy(msg_bgr), rgb_pixel)
+
+    def test_rgb_normalization_matches_training_float_tensor_path(self):
+        inference = VIPlannerInference.__new__(VIPlannerInference)
+        inference.train_cfg = SimpleNamespace(rgb=True)
+        inference.pixel_mean = np.asarray([10.0, 20.0, 30.0], dtype=np.float32)
+        inference.pixel_std = np.asarray([2.0, 4.0, 5.0], dtype=np.float32)
+        inference.device = torch.device("cpu")
+        inference.transforms = __import__("torchvision").transforms.ToTensor()
+
+        image = np.array([[[12, 24, 40]]], dtype=np.uint8)
+        tensor = inference.sem_rgb_converter(image)
+
+        expected = torch.tensor([[[[1.0]], [[1.0]], [[2.0]]]], dtype=torch.float32)
+        self.assertTrue(torch.equal(tensor, expected))
+
+    def test_image_dimension_validation_hard_fails_on_mismatch(self):
+        msg = SimpleNamespace(width=640, height=360)
+        validate_message_dimensions(msg, 640, 360, "Depth")
+        with self.assertRaises(RuntimeError):
+            validate_message_dimensions(msg, 320, 360, "Depth")
+
+        image = np.zeros((360, 640, 3), dtype=np.uint8)
+        validate_array_dimensions(image, 640, 360, "RGB")
+        with self.assertRaises(RuntimeError):
+            validate_array_dimensions(image, 640, 180, "RGB")
 
     def test_fear_forward_tracking_and_goal_clipping(self):
         fear_state = FearState(buffer_size=1, threshold=0.7)

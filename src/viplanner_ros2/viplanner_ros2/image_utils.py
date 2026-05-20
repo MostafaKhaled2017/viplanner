@@ -30,17 +30,34 @@ def prepare_depth_image(msg, depth_uint_type: bool, max_depth: float, image_flip
     return image
 
 
+def validate_message_dimensions(msg, expected_width: int, expected_height: int, label: str) -> None:
+    if msg.width != expected_width or msg.height != expected_height:
+        raise RuntimeError(
+            f"{label} image dimensions mismatch: expected "
+            f"{expected_width}x{expected_height}, got {msg.width}x{msg.height}"
+        )
+
+
+def validate_array_dimensions(image: np.ndarray, expected_width: int, expected_height: int, label: str) -> None:
+    height, width = image.shape[:2]
+    if width != expected_width or height != expected_height:
+        raise RuntimeError(
+            f"{label} image dimensions mismatch: expected "
+            f"{expected_width}x{expected_height}, got {width}x{height}"
+        )
+
+
 def rgb_msg_to_numpy(msg) -> np.ndarray:
     encoding = msg.encoding.lower()
     channels = 3
     if encoding in {"rgb8", "bgr8"}:
         image = np.frombuffer(msg.data, dtype=np.uint8).reshape(msg.height, msg.width, channels)
-        if encoding == "rgb8":
-            return image[:, :, ::-1]
-        return image
+        if encoding == "bgr8":
+            return image[:, :, ::-1].copy()
+        return image.copy()
     if encoding in {"rgba8", "bgra8"}:
         image = np.frombuffer(msg.data, dtype=np.uint8).reshape(msg.height, msg.width, 4)[:, :, :3]
-        if encoding == "rgba8":
-            return image[:, :, ::-1]
-        return image
+        if encoding == "bgra8":
+            return image[:, :, ::-1].copy()
+        return image.copy()
     raise RuntimeError(f"Unsupported RGB image encoding: {msg.encoding}")

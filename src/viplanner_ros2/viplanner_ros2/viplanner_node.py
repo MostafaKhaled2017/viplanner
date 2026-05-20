@@ -18,7 +18,12 @@ from tf2_ros import Buffer, TransformException, TransformListener
 
 import rclpy
 
-from .image_utils import prepare_depth_image, rgb_msg_to_numpy
+from .image_utils import (
+    prepare_depth_image,
+    rgb_msg_to_numpy,
+    validate_array_dimensions,
+    validate_message_dimensions,
+)
 from .inference import VIPlannerInference
 from .planning_utils import FearState, clip_goal_xy, fear_scalar, is_forward_tracking
 from .semantic_inference import Mask2FormerPredictor
@@ -113,7 +118,11 @@ class VIPlannerNode(Node):
             "verbose": False,
             "model_save": "",
             "depth_topic": "/rgbd_camera/depth/image",
+            "depth_width": 640,
+            "depth_height": 360,
             "rgb_topic": "/rgbd_camera/color/image",
+            "rgb_width": 640,
+            "rgb_height": 360,
             "rgb_compressed": False,
             "goal_topic": "/way_point",
             "path_topic": "/viplanner/path",
@@ -158,6 +167,10 @@ class VIPlannerNode(Node):
         self.main_freq = int(self.get_parameter("main_freq").value)
         self.verbose = bool(self.get_parameter("verbose").value)
         self.rgb_compressed = bool(self.get_parameter("rgb_compressed").value)
+        self.depth_width = int(self.get_parameter("depth_width").value)
+        self.depth_height = int(self.get_parameter("depth_height").value)
+        self.rgb_width = int(self.get_parameter("rgb_width").value)
+        self.rgb_height = int(self.get_parameter("rgb_height").value)
         self.depth_uint_type = bool(self.get_parameter("depth_uint_type").value)
         self.max_depth = float(self.get_parameter("max_depth").value)
         self.image_flip = bool(self.get_parameter("image_flip").value)
@@ -223,6 +236,7 @@ class VIPlannerNode(Node):
         return math.hypot(gx, gy) < self.conv_dist
 
     def depth_callback(self, msg: Image):
+        validate_message_dimensions(msg, self.depth_width, self.depth_height, "Depth")
         self.depth_img = prepare_depth_image(msg, self.depth_uint_type, self.max_depth, self.image_flip)
         self.depth_stamp = msg.header.stamp
         self.depth_frame_id = msg.header.frame_id
@@ -230,6 +244,7 @@ class VIPlannerNode(Node):
             self._update_goal_tensors(msg.header.stamp, msg.header.frame_id)
 
     def rgb_callback(self, msg: Image):
+        validate_message_dimensions(msg, self.rgb_width, self.rgb_height, "RGB")
         try:
             image = rgb_msg_to_numpy(msg)
         except RuntimeError as exc:
@@ -243,12 +258,14 @@ class VIPlannerNode(Node):
         if image is None:
             self.get_logger().error("Failed to decode compressed RGB image.")
             return
+        image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+        validate_array_dimensions(image, self.rgb_width, self.rgb_height, "RGB")
         self._store_rgb_image(image, msg.header)
 
     def _store_rgb_image(self, image, header):
         if self.semantic_predictor is not None:
             start = time.time()
-            image = self.semantic_predictor.predict(image)
+            image = self.semantic_predictor.predict(cv2.cvtColor(image, cv2.COLOR_RGB2BGR))
             self.semantic_timer_pub.publish(Float32(data=float((time.time() - start) * 1000.0)))
             self._publish_semantic_image(image, header)
         self.rgb_img = image

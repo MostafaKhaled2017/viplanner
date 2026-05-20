@@ -49,7 +49,9 @@ Important parameters:
 
 - `model_save`: trained VIPlanner model directory
 - `depth_topic`: depth image topic
+- `depth_width`, `depth_height`: required depth image dimensions; the node exits on mismatch
 - `rgb_topic`: RGB image topic, used only for RGB or semantic models
+- `rgb_width`, `rgb_height`: required RGB image dimensions; the node exits on mismatch
 - `rgb_compressed`: set to `true` when `rgb_topic` publishes `sensor_msgs/CompressedImage`
 - `goal_topic`: `geometry_msgs/PointStamped` goal topic
 - `path_topic`: output `nav_msgs/Path` topic
@@ -64,6 +66,8 @@ Important parameters:
 - `is_fear_act`, `fear_threshold`, `buffer_size`, `angular_thread`, `track_dist`: fear-path behavior
 - `joyGoal_scale`: scale for smart joystick goals
 - `subgoal_max_distance`: maximum robot-frame XY distance passed to the network
+
+The dimension parameters are checked before preprocessing. Set them to the exact width and height produced by the simulator, not merely the model resize target, unless those are the same.
 
 ## Launch
 

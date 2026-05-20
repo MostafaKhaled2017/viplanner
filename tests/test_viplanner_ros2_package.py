@@ -21,7 +21,13 @@ from viplanner_ros2.image_utils import (  # noqa: E402
 )
 from viplanner_ros2.inference import VIPlannerInference, extract_state_dict, resolve_model_files  # noqa: E402
 from viplanner_ros2.learning_cfg import TrainCfg  # noqa: E402
-from viplanner_ros2.planning_utils import FearState, clip_goal_xy, is_forward_tracking  # noqa: E402
+from viplanner_ros2.planning_utils import (  # noqa: E402
+    FearState,
+    clip_goal_xy,
+    is_forward_tracking,
+    stamp_is_after,
+    stamp_to_seconds,
+)
 
 
 class VIPlannerRos2PackageTest(unittest.TestCase):
@@ -117,6 +123,14 @@ class VIPlannerRos2PackageTest(unittest.TestCase):
 
         clipped = clip_goal_xy([6.0, 8.0, 2.0], 5.0)
         np.testing.assert_allclose(clipped, (3.0, 4.0, 2.0))
+
+    def test_stamp_helpers_compare_ros_time_messages(self):
+        stamp = SimpleNamespace(sec=10, nanosec=500_000_000)
+        reference = SimpleNamespace(sec=10, nanosec=250_000_000)
+
+        self.assertAlmostEqual(stamp_to_seconds(stamp), 10.5)
+        self.assertTrue(stamp_is_after(stamp, reference, tolerance=0.1))
+        self.assertFalse(stamp_is_after(stamp, reference, tolerance=0.25))
 
     def test_package_imports_are_isolated_from_repo_modules(self):
         package_dir = PKG_ROOT / "viplanner_ros2"

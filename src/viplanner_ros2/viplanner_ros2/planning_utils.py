@@ -62,3 +62,11 @@ def clip_goal_xy(goal_xyz, max_distance: float):
         gx *= scale
         gy *= scale
     return gx, gy, gz
+
+
+def stamp_to_seconds(stamp_msg) -> float:
+    return float(stamp_msg.sec) + float(stamp_msg.nanosec) * 1e-9
+
+
+def stamp_is_after(stamp_msg, reference_stamp_msg, tolerance: float = 0.0) -> bool:
+    return stamp_to_seconds(stamp_msg) > stamp_to_seconds(reference_stamp_msg) + tolerance

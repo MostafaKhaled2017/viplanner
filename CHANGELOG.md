@@ -1,3 +1,124 @@
+## 2026-05-20 06:50 - Make ROS2 TF lookups simulation-time tolerant
+
+**Change size**
+- `S`
+
+**Files changed**
+- `src/viplanner_ros2/config/viplanner.yaml`
+- `src/viplanner_ros2/viplanner_ros2/planning_utils.py`
+- `src/viplanner_ros2/viplanner_ros2/viplanner_node.py`
+- `tests/test_viplanner_ros2_package.py`
+- `CHANGELOG.md`
+
+**What changed**
+- Enabled `use_sim_time` in the ROS2 VIPlanner package config so the node uses the simulator clock when `/clock` is available.
+- Passed the node clock into the TF buffer when supported so TF cache behavior follows the node's configured time source.
+- Added a guarded fallback for TF future-extrapolation failures: exact timestamp lookups are still attempted first, but the node retries with the latest available transform when sensor stamps are ahead of the received TF data.
+- Added small ROS timestamp helper functions and focused unit coverage for their comparison behavior.
+
+**Context**
+- Depth image timestamps and `world -> d1_base_link` TF timestamps can arrive in different time states during simulation, causing goal transforms to fail with future extrapolation before inference.
+- The path should still be generated in the robot/body frame, but goal and camera transforms must use a time source compatible with the simulator.
+
+**Validation**
+- `python3 -m unittest tests.test_viplanner_ros2_package`
+- `python3 -m py_compile src/viplanner_ros2/viplanner_ros2/viplanner_node.py src/viplanner_ros2/viplanner_ros2/planning_utils.py tests/test_viplanner_ros2_package.py`
+- `git diff --check -- src/viplanner_ros2/viplanner_ros2/viplanner_node.py src/viplanner_ros2/viplanner_ros2/planning_utils.py src/viplanner_ros2/config/viplanner.yaml tests/test_viplanner_ros2_package.py CHANGELOG.md`
+
+**Notes**
+- The latest-transform fallback is limited to future-time failures and sensor stamps that are ahead of the node clock; unrelated TF lookup failures still surface as errors.
+- ROS2 distributions whose Python TF buffer does not accept a node argument fall back to the previous buffer construction path.
+
+## 2026-05-19 21:25 - Add YAML-driven training tuning launcher
+
+**Change size**
+- `M`
+
+**Files changed**
+- `viplanner/tune_train.py`
+- `viplanner/config/sweep_depth_geom.yaml`
+- `tests/test_tune_train.py`
+- `CHANGELOG.md`
+
+**What changed**
+- Added a YAML-driven training sweep launcher that expands parameter grids, writes per-trial training configs, runs `viplanner/train.py`, and summarizes results.
+- Added GPU-pool scheduling with user-provided GPU IDs, a maximum parallel run limit, and one active training process per GPU.
+- Added deterministic `max_trials` subsampling based on the sweep seed.
+- Added summary output in both YAML and CSV formats, including trial parameters, generated config path, model path, return code, validation loss, and test loss.
+- Added support for dry runs that generate trial configs and summaries without starting training.
+- Added a sample depth/geometric-cost sweep YAML covering learning rate, batch size, loss weights, and goal-distance sampling.
+- Added focused unit tests for sweep loading, grid expansion, deterministic trial limiting, config generation, GPU scheduling, and result parsing.
+
+**Context**
+- Training quality tuning needs to run many parameter combinations without manually editing config files and launching each training run.
+- The sweep space should be defined in YAML while keeping the training script itself unchanged.
+
+**Validation**
+- `python3 -m unittest tests.test_tune_train`
+- `python3 -m py_compile viplanner/tune_train.py tests/test_tune_train.py`
+- `python3 viplanner/tune_train.py --help`
+- Dry-run validation with temporary base and sweep YAML files using `--gpus 0,1 --max-parallel 2 --max-trials 3 --dry-run`.
+- Parsed `viplanner/config/sweep_depth_geom.yaml` and verified that it expands to 32 trials.
+
+**Notes**
+- No Optuna, Ray Tune, or W&B Sweeps dependency was added.
+- Grid expansion is the only supported sweep format in this version.
+
+## 2026-05-19 21:07 - Add standalone ROS2 VIPlanner evaluation package
+
+**Change size**
+- `L`
+
+**Files changed**
+- `src/viplanner_ros2/package.xml`
+- `src/viplanner_ros2/README.md`
+- `src/viplanner_ros2/setup.py`
+- `src/viplanner_ros2/setup.cfg`
+- `src/viplanner_ros2/resource/viplanner_ros2`
+- `src/viplanner_ros2/config/viplanner.yaml`
+- `src/viplanner_ros2/launch/viplanner.launch.py`
+- `src/viplanner_ros2/viplanner_ros2/__init__.py`
+- `src/viplanner_ros2/viplanner_ros2/learning_cfg.py`
+- `src/viplanner_ros2/viplanner_ros2/planner_net.py`
+- `src/viplanner_ros2/viplanner_ros2/rgb_encoder.py`
+- `src/viplanner_ros2/viplanner_ros2/autoencoder.py`
+- `src/viplanner_ros2/viplanner_ros2/traj_opt.py`
+- `src/viplanner_ros2/viplanner_ros2/image_utils.py`
+- `src/viplanner_ros2/viplanner_ros2/planning_utils.py`
+- `src/viplanner_ros2/viplanner_ros2/inference.py`
+- `src/viplanner_ros2/viplanner_ros2/semantic_meta.py`
+- `src/viplanner_ros2/viplanner_ros2/semantic_inference.py`
+- `src/viplanner_ros2/viplanner_ros2/viplanner_node.py`
+- `tests/test_viplanner_ros2_package.py`
+- `CHANGELOG.md`
+
+**What changed**
+- Added a standalone ROS2 `ament_python` package for evaluating VIPlanner checkpoints from a trained model directory containing `model.pt` and `model.yaml`.
+- Vendored the minimal model config, network, trajectory generation, image conversion, semantic mapping, and inference runtime needed by the ROS2 package.
+- Added a ROS2 node that follows the iPlanner-style runtime loop while adapting goal projection, model loading, and input selection to VIPlanner depth, RGB, and semantic model configurations.
+- Added launch and YAML parameter files for the new `viplanner_ros2` package.
+- Added package-local README documentation covering model directory layout, build and launch usage, parameters, topics, input modes, and semantic dependency notes.
+- Fixed ROS2 RGB preprocessing to keep RGB channel order and preserve float normalization before tensor conversion, matching the training data path.
+- Added required depth and RGB image dimension parameters, with runtime failures when simulator image dimensions do not match the configured sizes.
+- Added focused tests for model directory validation, config parsing, checkpoint extraction, depth conversion, fear/path helper logic, and import isolation.
+
+**Context**
+- The ROS2 evaluation package needs to behave like `ref/iplanner` while remaining independent from other repository packages.
+- The package must not import local `viplanner`, `src/planner`, or `ref/iplanner` modules so it can be copied or built independently.
+
+**Validation**
+- `python -m unittest tests.test_viplanner_ros2_package`
+- `python -m py_compile src/viplanner_ros2/viplanner_ros2/learning_cfg.py src/viplanner_ros2/viplanner_ros2/planner_net.py src/viplanner_ros2/viplanner_ros2/rgb_encoder.py src/viplanner_ros2/viplanner_ros2/autoencoder.py src/viplanner_ros2/viplanner_ros2/traj_opt.py src/viplanner_ros2/viplanner_ros2/image_utils.py src/viplanner_ros2/viplanner_ros2/planning_utils.py src/viplanner_ros2/viplanner_ros2/inference.py src/viplanner_ros2/viplanner_ros2/semantic_meta.py src/viplanner_ros2/viplanner_ros2/semantic_inference.py tests/test_viplanner_ros2_package.py`
+- `python -m py_compile src/viplanner_ros2/viplanner_ros2/viplanner_node.py`
+- `python -m pytest tests`
+- `git diff --check -- src/viplanner_ros2 tests/test_viplanner_ros2_package.py CHANGELOG.md`
+- `git diff --check -- src/viplanner_ros2/README.md CHANGELOG.md`
+- `colcon build --packages-select viplanner_ros2` was not run because `colcon` is not installed in the current environment.
+
+**Notes**
+- ONNX support is intentionally out of scope for this package version.
+- Semantic inference depends on external `mmdet` or `detectron2`/`mask2former` installations only when a semantic model is used.
+
 ## 2026-05-19 06:40 - Replace training wandb logging with TensorBoard
 
 **Change size**
@@ -12,6 +133,8 @@
 - `tests/test_training_early_stopping.py`
 - `tests/test_training_run_directory.py`
 - `pyproject.toml`
+- `.devcontainer/Dockerfile`
+- `README.md`
 - `CHANGELOG.md`
 
 **What changed**
@@ -24,6 +147,8 @@
 - Added pre-BCELoss validation for non-finite fear predictions, final loss validation before backward, and clamped valid probabilities to avoid CUDA device-side asserts.
 - Removed unused `wb_project`, `wb_entity`, and `wb_api_key` training config fields while preserving compatibility with YAML files that still contain them.
 - Updated the default training YAML, training dependency extra, documentation, and focused tests for TensorBoard logging.
+- Added TensorBoard troubleshooting documentation for protobuf 5.x `MessageToJson` failures.
+- Installed the training extra in the dev container and repinned `protobuf<5` after third-party package installs.
 
 **Context**
 - Training metrics should be logged without requiring a Weights & Biases account or API key.
@@ -33,11 +158,12 @@
 - `python -m unittest tests.test_training_early_stopping tests.test_training_run_directory`
 - `python -m py_compile viplanner/train.py viplanner/config/learning_cfg.py viplanner/utils/trainer.py viplanner/traj_cost_opt/traj_cost.py`
 - `python viplanner/train.py --help`
-- `git diff --check -- viplanner/config/learning_cfg.py viplanner/config/train.yaml viplanner/utils/trainer.py viplanner/traj_cost_opt/traj_cost.py viplanner/train.py TRAINING.md tests/test_training_early_stopping.py tests/test_training_run_directory.py pyproject.toml CHANGELOG.md`
+- `git diff --check -- viplanner/config/learning_cfg.py viplanner/config/train.yaml viplanner/utils/trainer.py viplanner/traj_cost_opt/traj_cost.py viplanner/train.py TRAINING.md README.md .devcontainer/Dockerfile tests/test_training_early_stopping.py tests/test_training_run_directory.py pyproject.toml CHANGELOG.md`
+- `python3 -m pip show tensorboard protobuf`
 
 **Notes**
 - TensorBoard graph tracing is intentionally not added because the model has multiple input signatures depending on training configuration.
-- The training extra pins `protobuf<5` because TensorBoard 2.14.0's HParams plugin is incompatible with protobuf 5.x.
+- The training extra pins `protobuf<5` because TensorBoard 2.14.x's HParams plugin is incompatible with protobuf 5.x.
 
 ## 2026-05-19 06:31 - Add independent early stopping patience
 

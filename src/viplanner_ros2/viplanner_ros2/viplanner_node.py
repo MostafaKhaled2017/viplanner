@@ -25,7 +25,7 @@ from .image_utils import (
     validate_message_dimensions,
 )
 from .inference import VIPlannerInference
-from .planning_utils import FearState, clip_goal_xy, fear_scalar, is_forward_tracking
+from .planning_utils import FearState, clip_goal_xy, fear_scalar, is_forward_tracking, stamp_is_after, stamp_to_seconds
 from .semantic_inference import Mask2FormerPredictor
 
 ROS_TO_ROBOTICS_MAT = np.array([[0.0, 0.0, 1.0], [-1.0, 0.0, 0.0], [0.0, -1.0, 0.0]], dtype=np.float32)
@@ -72,7 +72,10 @@ class VIPlannerNode(Node):
                 warn_fn=self.get_logger().warn,
             )
 
-        self.tf_buffer = Buffer(cache_time=Duration(seconds=20.0))
+        try:
+            self.tf_buffer = Buffer(cache_time=Duration(seconds=20.0), node=self)
+        except TypeError:
+            self.tf_buffer = Buffer(cache_time=Duration(seconds=20.0))
         self.tf_listener = TransformListener(self.tf_buffer, self)
 
         self.depth_img = None
@@ -91,6 +94,7 @@ class VIPlannerNode(Node):
         self.is_smartjoy = False
         self.planner_status = Int16(data=0)
         self.fear_state = FearState(self.buffer_size, self.fear_threshold)
+        self._last_tf_fallback_warning = 0.0
 
         qos = QoSProfile(reliability=ReliabilityPolicy.RELIABLE, history=HistoryPolicy.KEEP_LAST, depth=10)
         self.create_subscription(Image, self.depth_topic, self.depth_callback, qos)
@@ -348,23 +352,13 @@ class VIPlannerNode(Node):
     def _transform_goal(self, point_stamped, target_frame, stamp_msg):
         if point_stamped.header.frame_id == target_frame:
             return point_stamped
-        tfm = self.tf_buffer.lookup_transform(
-            target_frame,
-            point_stamped.header.frame_id,
-            rclpy.time.Time.from_msg(stamp_msg),
-            timeout=Duration(seconds=1.0),
-        )
+        tfm = self._lookup_transform(target_frame, point_stamped.header.frame_id, stamp_msg)
         return do_transform_point(point_stamped, tfm)
 
     def _update_camera_transform(self, depth_frame_id, stamp_msg) -> bool:
         source_frame = self.mount_cam_frame or depth_frame_id
         try:
-            transform = self.tf_buffer.lookup_transform(
-                self.robot_id,
-                source_frame,
-                rclpy.time.Time.from_msg(stamp_msg),
-                timeout=Duration(seconds=1.0),
-            )
+            transform = self._lookup_transform(self.robot_id, source_frame, stamp_msg)
         except TransformException as exc:
             self.get_logger().error(f"Failed to transform camera frame {source_frame} into {self.robot_id}: {exc}")
             return False
@@ -376,6 +370,44 @@ class VIPlannerNode(Node):
         if not self.image_flip:
             self.cam_rot = self.cam_rot @ CAMERA_FLIP_MAT
         return True
+
+    def _lookup_transform(self, target_frame, source_frame, stamp_msg):
+        requested_time = rclpy.time.Time.from_msg(stamp_msg)
+        try:
+            return self.tf_buffer.lookup_transform(
+                target_frame,
+                source_frame,
+                requested_time,
+                timeout=Duration(seconds=1.0),
+            )
+        except TransformException as exc:
+            if not self._should_retry_latest_transform(stamp_msg, exc):
+                raise
+
+            self._warn_tf_fallback(target_frame, source_frame, stamp_msg, exc)
+            return self.tf_buffer.lookup_transform(
+                target_frame,
+                source_frame,
+                rclpy.time.Time(),
+                timeout=Duration(seconds=1.0),
+            )
+
+    def _should_retry_latest_transform(self, stamp_msg, exc: TransformException) -> bool:
+        if "future" in str(exc).lower():
+            return True
+        return stamp_is_after(stamp_msg, self.get_clock().now().to_msg(), tolerance=0.25)
+
+    def _warn_tf_fallback(self, target_frame, source_frame, stamp_msg, exc: TransformException) -> None:
+        now = time.monotonic()
+        if now - self._last_tf_fallback_warning < 5.0:
+            return
+        self._last_tf_fallback_warning = now
+        self.get_logger().warn(
+            "TF for "
+            f"{source_frame} -> {target_frame} at {stamp_to_seconds(stamp_msg):.6f} "
+            "is ahead of the available transform data; using the latest available transform. "
+            f"Original TF error: {exc}"
+        )
 
     def publish_path(self, waypoints):
         path = Path()

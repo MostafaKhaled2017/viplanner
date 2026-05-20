@@ -2,8 +2,9 @@
   ros__parameters:
     main_freq: 5
     verbose: false
+    use_sim_time: true
 
-    model_save: "/workspaces/drone_ws/perception_planning/ros_ws/viplanner_ros2/models/2026-05-19_07-36-47"
+    model_save: "/workspaces/drone_ws/perception_planning/ros_ws/src/viplanner_models/models/2026-05-19_07-36-47"
 
     depth_topic: /drone_1/depth
     depth_width: 640
@@ -35,5 +36,4 @@
     track_dist: 0.5
     joyGoal_scale: 2.5
 
-    subgoal_max_distance: 20.0
-    subgoal_update_distance: 7.0
+    subgoal_max_distance: 35.0

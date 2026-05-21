@@ -30,12 +30,12 @@ rosrun planner_validation_ros1 viplanner_model_sweep.py \
 python viplanner/train.py --config viplanner/config/train.yaml --no-test-visualizations
 
 # Running tensorboard
-tensorboard --logdir src/planner/logs --port 6006 --bind_all
+tensorboard --logdir src/planner/logs --host 0.0.0.0 --port 6006
 
 python3 viplanner/tune_train.py \
-  --sweep-config tuning/sweep_depth_geom.yaml \
+  --sweep-config viplanner/config/sweep_depth_geom.yaml \
   --gpus 1,2 \
-  --max-parallel 4 \
+  --max-parallel 4
 
 # Generate Sementics from RGB
 python3 viplanner/generate_semantics.py \

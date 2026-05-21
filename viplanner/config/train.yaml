@@ -51,7 +51,7 @@ config:
   decoder_small: false
 
   resume: false
-  epochs: 100
+  epochs: 500
   batch_size: 64
   hierarchical: false
   hierarchical_step: 50
@@ -69,6 +69,6 @@ config:
   camera_tilt: 0.0 # TODO: Update when recording data with camera tilted
   n_visualize: 15
 
-  wb_project: VIPlanner
-  wb_entity: viplanner
-  wb_api_key: null
+  # wb_project: VIPlanner
+  # wb_entity: viplanner
+  # wb_api_key: null

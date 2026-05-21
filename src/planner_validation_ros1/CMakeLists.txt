@@ -20,6 +20,7 @@ catkin_package(
 
 catkin_install_python(PROGRAMS
   scripts/planner_validation_node.py
+  scripts/viplanner_model_sweep.py
   DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
 )
 

@@ -208,7 +208,10 @@ class VIPlannerNode:
         rate = rospy.Rate(max(1, self.main_freq))
         while not rospy.is_shutdown():
             self.tick()
-            rate.sleep()
+            try:
+                rate.sleep()
+            except rospy.ROSInterruptException:
+                break
 
     def tick(self):
         if not self._has_planning_inputs():

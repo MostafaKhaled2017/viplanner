@@ -15,6 +15,16 @@ python viplanner/depth_reconstruct.py --config viplanner/config/costmap.yaml
 # Important params: map_name, robot_height, semantics, geometry
 python viplanner/cost_builder.py --config viplanner/config/costmap.yaml
 
+# Launch planner validation package
+roslaunch planner_validation_ros1 planner_validation.launch
+
+# Sweep VIPlanner model directories with planner validation
+rosrun planner_validation_ros1 viplanner_model_sweep.py \
+  --models-parent /workspaces/viplanner/src/viplanner_ros1/models \
+  --output-dir /workspaces/viplanner/src/planner_validation_ros1/logs \
+  --viplanner-config /workspaces/viplanner/src/viplanner_ros1/config/viplanner.yaml \
+  --validation-config /workspaces/viplanner/src/planner_validation_ros1/config/planner_validation.yaml
+
 # Run training
 # Adjust configs in viplanner/config/train.yaml
 python viplanner/train.py --config viplanner/config/train.yaml --no-test-visualizations

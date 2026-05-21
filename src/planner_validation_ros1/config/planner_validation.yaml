@@ -7,7 +7,7 @@ run_id: ""
 
 goal_topic: /way_point
 start_pose_topic: /drone_1/start_pose
-planner_status_topic: /ip_planner_status
+planner_status_topic: /viplanner/status
 collision_topic: /drone_1/collision
 
 robot_id: d1_base_link
@@ -19,3 +19,4 @@ start_arrival_thresh: 0.5
 goal_arrival_thresh: 0.25
 
 debug_csv_columns: false
+shutdown_on_complete: false

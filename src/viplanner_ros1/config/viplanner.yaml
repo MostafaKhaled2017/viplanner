@@ -37,9 +37,9 @@ joyGoal_scale: 2.5
 subgoal_max_distance: 35.0
 subgoal_update_distance: 7.0
 
-debug_enabled: true
+debug_enabled: false
 debug_dump_dir: /tmp/viplanner_ros_debug
 debug_dump_every_n: 1
-debug_save_input_tensors: true
+debug_save_input_tensors: false
 debug_height_warn_threshold: 0.05
 use_camera_frame_goal: false

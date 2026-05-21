@@ -41,6 +41,7 @@ Important parameters:
 - `trial_timeout_sec`: per-scenario timeout
 - `start_arrival_thresh`: threshold for considering the robot at the start
 - `goal_arrival_thresh`: threshold for considering the robot at the goal
+- `shutdown_on_complete`: when `true`, shut down the node after all scenarios finish
 
 ## Scenario File Format
 
@@ -82,3 +83,24 @@ The planner under test is expected to use:
 - TF from `world_id` to `robot_id`
 
 Planner status `1` means the goal was reached. Any other value means not reached yet. The validator also checks geometric goal arrival using `goal_arrival_thresh`.
+
+## VIPlanner Model Sweep
+
+The package includes an external sweep runner for validating every immediate child model directory under a parent directory. A valid model directory must contain both `model.pt` and `model.yaml`.
+
+The simulator, bridge, world/map, and path follower should already be running. The runner manages only `viplanner_ros1` and `planner_validation_ros1` launches:
+
+```bash
+rosrun planner_validation_ros1 viplanner_model_sweep.py \
+  --models-parent /path/to/models_parent \
+  --output-dir /path/to/validation_sweeps \
+  --viplanner-config /path/to/viplanner.yaml \
+  --validation-config /path/to/planner_validation.yaml
+```
+
+For each model, the runner writes temporary per-run configs, sets VIPlanner `model_save`, sets validation `planner_id` and `log_dir`, and forces `planner_status_topic` to `/viplanner/status`.
+
+Sweep outputs are written under a timestamped directory:
+
+- `sweep_trials.csv`: combined per-scenario rows with `model_name` and `model_path`
+- `sweep_summary.csv`: per-model success, collision, timing, distance, and failure status

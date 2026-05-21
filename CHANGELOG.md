@@ -1,3 +1,187 @@
+## 2026-05-21 11:36 - Add external VIPlanner model sweep runner
+
+**Change size**
+- `M`
+
+**Files changed**
+- `src/planner_validation_ros1/CMakeLists.txt`
+- `src/planner_validation_ros1/README.md`
+- `src/planner_validation_ros1/config/planner_validation.yaml`
+- `src/planner_validation_ros1/package.xml`
+- `src/planner_validation_ros1/scripts/planner_validation_node.py`
+- `src/planner_validation_ros1/scripts/viplanner_model_sweep.py`
+- `src/planner_validation_ros1/src/planner_validation_ros1/validation_core.py`
+- `src/viplanner_ros1/scripts/viplanner_node.py`
+- `tests/test_planner_validation_ros1_package.py`
+- `commands.bash`
+- `CHANGELOG.md`
+
+**What changed**
+- Added an external ROS1 sweep runner that discovers immediate child VIPlanner model directories containing `model.pt` and `model.yaml`, launches `viplanner_ros1` and `planner_validation_ros1` once per model, and writes combined trial and summary CSV reports.
+- Added reusable validation helpers for model discovery, sweep config overrides, validation CSV merging, and per-model summary metrics.
+- Added `shutdown_on_complete`, defaulting to `false`, so sweep-generated validation configs can make the validator exit after all scenarios finish.
+- Installed the sweep runner through catkin, declared the YAML runtime dependency, documented the sweep workflow, and added a command example.
+- Added focused unit tests for model discovery, sweep config generation, CSV merge behavior, summary metrics, summary output columns, and runner installation.
+- Handled normal ROS shutdown interrupts in the validation and VIPlanner spin loops so completed sweep runs do not print Python tracebacks during intentional shutdown.
+
+**Context**
+- Batch validation was needed for comparing all VIPlanner checkpoint subdirectories under one parent without adding a runtime model-reload API or moving scenario orchestration into the planner node.
+- The runner assumes the simulator, bridge, world/map, and path follower are already running and manages only the VIPlanner and validation launches.
+
+**Validation**
+- `PYTHONPYCACHEPREFIX=/tmp/viplanner_pycache python3 -m py_compile src/planner_validation_ros1/scripts/viplanner_model_sweep.py src/planner_validation_ros1/scripts/planner_validation_node.py src/planner_validation_ros1/src/planner_validation_ros1/validation_core.py tests/test_planner_validation_ros1_package.py`
+- `python3 -m unittest tests.test_planner_validation_ros1_package`
+- `python3 src/planner_validation_ros1/scripts/viplanner_model_sweep.py --help`
+- `PYTHONPYCACHEPREFIX=/tmp/viplanner_pycache python3 -m py_compile src/planner_validation_ros1/scripts/planner_validation_node.py src/viplanner_ros1/scripts/viplanner_node.py src/planner_validation_ros1/scripts/viplanner_model_sweep.py`
+- `git diff --check -- src/planner_validation_ros1 tests/test_planner_validation_ros1_package.py commands.bash`
+- `catkin build planner_validation_ros1 viplanner_ros1 --cmake-args -DCMAKE_POLICY_VERSION_MINIMUM=3.5`
+- `python3 -m unittest tests.test_planner_validation_ros1_package tests.test_viplanner_ros1_package` was attempted and failed only because `src/viplanner_ros1/config/viplanner.yaml` currently has `debug_enabled: true` while the existing VIPlanner test expects the repository default `false`.
+
+**Notes**
+- Sweep output is written under a timestamped directory containing per-model generated configs, validation logs, `sweep_trials.csv`, and `sweep_summary.csv`.
+- The catkin build succeeded with CMake/catkin/googletest deprecation and developer warnings from the Noetic environment.
+
+## 2026-05-21 10:15 - Add VIPlanner training and ROS1 debug dumps
+
+**Change size**
+- `M`
+
+**Files changed**
+- `viplanner/debug_training_pipeline.py`
+- `viplanner/utils/debug_summary.py`
+- `src/viplanner_ros1/config/viplanner.yaml`
+- `src/viplanner_ros1/scripts/viplanner_node.py`
+- `src/viplanner_ros1/src/viplanner_ros1/debug_utils.py`
+- `src/planner_validation_ros1/config/planner_validation.yaml`
+- `src/planner_validation_ros1/scripts/planner_validation_node.py`
+- `src/planner_validation_ros1/src/planner_validation_ros1/validation_core.py`
+- `tests/test_debug_pipeline.py`
+- `tests/test_viplanner_ros1_package.py`
+- `tests/test_planner_validation_ros1_package.py`
+- `CHANGELOG.md`
+
+**What changed**
+- Added an opt-in `viplanner.debug_training_pipeline` script that rebuilds the configured training/test data path, runs a trained checkpoint, and writes JSON/optional NPZ dumps containing model inputs, odometry, goals, raw keypoints, generated waypoints, fear output, z summaries, and per-sample loss components.
+- Added shared training debug summary helpers for tensor statistics, xyz summaries, JSON-safe conversion, and augmented-sample loss-frame mirroring.
+- Fixed the xyz summary helper to move torch tensors to CPU before NumPy conversion, allowing the debug script to summarize CUDA model outputs.
+- Added ROS1 VIPlanner debug parameters, defaulted off, for runtime JSON/optional NPZ dumps of depth statistics, goal transforms, camera transform, raw model outputs, generated trajectories, published path z ranges, and body-frame goal height.
+- Fixed the ROS1 debug dump writer to use separate aliases for filesystem paths and `nav_msgs/Path`, preventing debug mode from constructing a ROS path message when opening the dump directory.
+- Updated the ROS1 path publishers to use the same `RosPath` alias so planner startup no longer references the removed bare `Path` name.
+- Added `use_camera_frame_goal`, defaulting to `false`, so the ROS1 planner feeds body-frame goals to the model and publishes body-frame waypoints directly by default. This matches the depth-only training/debug data and avoids rotating forward distance into the model z axis.
+- Added optional planner-validation CSV debug columns for start/goal z, robot start/end z, final distance, planner status, and reached/timeout outcome.
+- Added focused unit tests for debug helpers, ROS1 debug config defaults, goal z preservation, and optional validation CSV debug columns.
+
+**Context**
+- Training and ROS1 validation needed inspectable artifacts to determine whether bad vertical path behavior comes from dataset labels, preprocessing, model outputs, trajectory interpolation, loss terms, or TF/body-frame height handling.
+- Debug output is opt-in so normal training, inference, and validation behavior remains unchanged unless debug parameters or script flags are enabled.
+
+**Validation**
+- `PYTHONPYCACHEPREFIX=/tmp/viplanner_pycache python3 -m py_compile viplanner/debug_training_pipeline.py viplanner/utils/debug_summary.py src/viplanner_ros1/scripts/viplanner_node.py src/viplanner_ros1/src/viplanner_ros1/debug_utils.py src/planner_validation_ros1/scripts/planner_validation_node.py src/planner_validation_ros1/src/planner_validation_ros1/validation_core.py tests/test_debug_pipeline.py tests/test_viplanner_ros1_package.py tests/test_planner_validation_ros1_package.py`
+- `python3 -m unittest tests.test_debug_pipeline tests.test_viplanner_ros1_package tests.test_planner_validation_ros1_package`
+- `python3 -m unittest tests.test_viplanner_ros1_package`
+- `python3 -m unittest tests.test_planner_validation_ros1_package`
+- `PYTHONPYCACHEPREFIX=/tmp/viplanner_pycache python3 -m viplanner.debug_training_pipeline --model-dir src/viplanner_ros1/models/2026-05-19_07-36-47 --split test --num-samples 1 --output-dir /tmp/viplanner_debug_training`
+- `PYTHONPYCACHEPREFIX=/tmp/viplanner_pycache python3 -m viplanner.debug_training_pipeline --model-dir src/viplanner_ros1/models/2026-05-19_07-36-47 --split test --num-samples 1 --output-dir /tmp/viplanner_debug_training_fix`
+- `PYTHONPYCACHEPREFIX=/tmp/viplanner_pycache python3 -m py_compile src/viplanner_ros1/scripts/viplanner_node.py`
+- `python3 -m unittest tests.test_viplanner_ros1_package` was rerun after enabling local runtime debug and failed only because `src/viplanner_ros1/config/viplanner.yaml` currently has `debug_enabled: true` instead of the repository default `false`.
+- `PYTHONPYCACHEPREFIX=/tmp/viplanner_pycache python3 -m py_compile src/viplanner_ros1/scripts/viplanner_node.py`
+
+**Notes**
+- The real-model smoke dump used one sample to verify the exact pipeline quickly; larger sweeps can use `--num-samples 32` or more.
+- The smoke dump ran on CPU because CUDA was unavailable in the current environment.
+- The first smoke-dump sample had `goal_z_abs: 0.0`; raw keypoint z values were near zero for that sample.
+
+## 2026-05-21 08:35 - Add ROS1 planner validation package
+
+**Change size**
+- `M`
+
+**Files changed**
+- `src/planner_validation_ros1/CMakeLists.txt`
+- `src/planner_validation_ros1/README.md`
+- `src/planner_validation_ros1/config/planner_validation.yaml`
+- `src/planner_validation_ros1/launch/planner_validation.launch`
+- `src/planner_validation_ros1/package.xml`
+- `src/planner_validation_ros1/scenarios/validation_forest.txt`
+- `src/planner_validation_ros1/scenarios/validation_forest_5.txt`
+- `src/planner_validation_ros1/scripts/planner_validation_node.py`
+- `src/planner_validation_ros1/setup.py`
+- `src/planner_validation_ros1/src/planner_validation_ros1/__init__.py`
+- `src/planner_validation_ros1/src/planner_validation_ros1/validation_core.py`
+- `tests/test_planner_validation_ros1_package.py`
+- `CHANGELOG.md`
+
+**What changed**
+- Added a new `planner_validation_ros1` catkin package that ports the reference planner validation node from ROS2 `rclpy` to ROS1 `rospy`.
+- Added a ROS1 launch file, flat rosparam YAML, package metadata, catkin Python setup, copied scenario files, and package README documentation.
+- Preserved the validation state machine for start-pose publishing, goal publishing, TF-based arrival checks, planner status monitoring, collision tracking, timeout handling, and CSV result output.
+- Added package-local testable helpers for scenario parsing, distance checks, start yaw conversion, quaternion conversion, relative path resolution, and CSV writing.
+- Added focused unit tests for scenario parsing, helper math, ROS1 config shape, launch target metadata, and absence of ROS2-only imports.
+
+**Context**
+- A ROS1 version of `ref/planner_validation` was needed under the workspace `src` directory without changing the reference package or the existing planner packages.
+- The package name was set to `planner_validation_ros1` to make the ROS version explicit.
+
+**Validation**
+- `python3 -m unittest tests.test_planner_validation_ros1_package`
+- `python3 -m py_compile src/planner_validation_ros1/scripts/planner_validation_node.py src/planner_validation_ros1/src/planner_validation_ros1/__init__.py src/planner_validation_ros1/src/planner_validation_ros1/validation_core.py tests/test_planner_validation_ros1_package.py`
+- `git diff --check -- src/planner_validation_ros1 tests/test_planner_validation_ros1_package.py`
+- `catkin build planner_validation_ros1 --cmake-args -DCMAKE_POLICY_VERSION_MINIMUM=3.5`
+
+**Notes**
+- Historical CSV logs and ROS2 resource files from `ref/planner_validation` were intentionally not copied.
+- The catkin build succeeded with CMake/catkin/googletest deprecation and developer warnings from the Noetic environment.
+
+## 2026-05-21 08:16 - Add standalone ROS1 Noetic VIPlanner package
+
+**Change size**
+- `L`
+
+**Files changed**
+- `src/viplanner_ros1/CMakeLists.txt`
+- `src/viplanner_ros1/README.md`
+- `src/viplanner_ros1/config/viplanner.yaml`
+- `src/viplanner_ros1/launch/viplanner.launch`
+- `src/viplanner_ros1/package.xml`
+- `src/viplanner_ros1/scripts/viplanner_node.py`
+- `src/viplanner_ros1/setup.py`
+- `src/viplanner_ros1/src/viplanner_ros1/__init__.py`
+- `src/viplanner_ros1/src/viplanner_ros1/autoencoder.py`
+- `src/viplanner_ros1/src/viplanner_ros1/image_utils.py`
+- `src/viplanner_ros1/src/viplanner_ros1/inference.py`
+- `src/viplanner_ros1/src/viplanner_ros1/learning_cfg.py`
+- `src/viplanner_ros1/src/viplanner_ros1/planner_net.py`
+- `src/viplanner_ros1/src/viplanner_ros1/planning_utils.py`
+- `src/viplanner_ros1/src/viplanner_ros1/rgb_encoder.py`
+- `src/viplanner_ros1/src/viplanner_ros1/semantic_inference.py`
+- `src/viplanner_ros1/src/viplanner_ros1/semantic_meta.py`
+- `src/viplanner_ros1/src/viplanner_ros1/traj_opt.py`
+- `tests/test_viplanner_ros1_package.py`
+- `CHANGELOG.md`
+
+**What changed**
+- Added a new `viplanner_ros1` catkin package for standalone ROS1 Noetic evaluation of VIPlanner checkpoints.
+- Copied the package-local ROS2 inference, model, image, planning, trajectory, and semantic runtime modules into the ROS1 package with ROS1 package imports.
+- Added a `rospy` node wrapper that preserves the ROS2 package behavior for depth-only, RGB, semantic, goal, joystick, latest-TF, fear-path, timing, status, and semantic visualization flows.
+- Added ROS1 rosparam YAML, roslaunch entrypoint, package metadata, catkin Python setup, and package README documentation.
+- Added focused unit tests for model directory validation, checkpoint extraction, config parsing, image conversion, dimension validation, fear/goal helpers, and import isolation.
+
+**Context**
+- A ROS1 Noetic version of `src/viplanner_ros2` was needed without replacing the existing ROS2 package or the older `src/planner` ROS1 package.
+- The target behavior is parity with the standalone ROS2 package, not expansion of legacy ROS1-only visualization or RGB-depth warping behavior.
+
+**Validation**
+- `python3 -m unittest tests.test_viplanner_ros1_package`
+- `python3 -m py_compile src/viplanner_ros1/scripts/viplanner_node.py src/viplanner_ros1/src/viplanner_ros1/__init__.py src/viplanner_ros1/src/viplanner_ros1/autoencoder.py src/viplanner_ros1/src/viplanner_ros1/image_utils.py src/viplanner_ros1/src/viplanner_ros1/inference.py src/viplanner_ros1/src/viplanner_ros1/learning_cfg.py src/viplanner_ros1/src/viplanner_ros1/planner_net.py src/viplanner_ros1/src/viplanner_ros1/planning_utils.py src/viplanner_ros1/src/viplanner_ros1/rgb_encoder.py src/viplanner_ros1/src/viplanner_ros1/semantic_inference.py src/viplanner_ros1/src/viplanner_ros1/semantic_meta.py src/viplanner_ros1/src/viplanner_ros1/traj_opt.py tests/test_viplanner_ros1_package.py`
+- `git diff --check -- src/viplanner_ros1 tests/test_viplanner_ros1_package.py CHANGELOG.md`
+- `catkin_make --pkg viplanner_ros1` was attempted but this workspace was previously built by `catkin build`, so `catkin_make` refused to use the existing build space.
+- `catkin build viplanner_ros1` was attempted and reached the package configure step, but the environment's newer CMake rejected the system `/usr/src/googletest` CMake minimum.
+- `catkin build viplanner_ros1 --cmake-args -DCMAKE_POLICY_VERSION_MINIMUM=3.5` succeeded.
+
+**Notes**
+- Legacy-only ROS1 features from `src/planner`, including `_viz` world-frame paths, crop-goal markers, camera-info subscribers, and RGB-depth warping, are intentionally out of scope.
+- The successful catkin build emitted CMake deprecation and developer warnings from Noetic/catkin/googletest compatibility with the installed CMake version.
+
 ## 2026-05-20 07:14 - Align ROS2 VIPlanner TF lookup timing with reference package
 
 **Change size**

@@ -106,12 +106,16 @@ class PlannerValidationNode:
         self.start_arrival_thresh = float(get_private_param("start_arrival_thresh", 0.5))
         self.goal_arrival_thresh = float(get_private_param("goal_arrival_thresh", 0.5))
         self.debug_csv_columns = bool(get_private_param("debug_csv_columns", False))
+        self.shutdown_on_complete = bool(get_private_param("shutdown_on_complete", False))
 
     def spin(self):
         rate = rospy.Rate(max(1, self.main_freq))
         while not rospy.is_shutdown():
             self.tick()
-            rate.sleep()
+            try:
+                rate.sleep()
+            except rospy.ROSInterruptException:
+                break
 
     def _planner_status_callback(self, msg):
         self._planner_status = int(msg.data)
@@ -184,6 +188,8 @@ class PlannerValidationNode:
         if self._sc_idx >= len(self._scenarios):
             rospy.loginfo("[validation] Completed all scenarios.")
             self._completed = True
+            if self.shutdown_on_complete:
+                rospy.signal_shutdown("planner validation completed")
             return
 
         scenario = self._scenarios[self._sc_idx]

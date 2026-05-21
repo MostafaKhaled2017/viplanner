@@ -180,30 +180,34 @@ class GpuScheduler:
         if max_parallel < 1:
             raise ValueError("`max_parallel` must be greater than zero")
 
-        self._max_parallel = min(max_parallel, len(self._gpu_ids))
-        self._active: Dict[int, str] = {}
+        self._max_parallel = max_parallel
+        self._active: Dict[str, int] = {}
+        self._next_gpu_index = 0
 
     @property
     def active_count(self) -> int:
         return len(self._active)
 
     def can_start(self) -> bool:
-        return self.active_count < self._max_parallel and bool(self.available_gpus())
+        return self.active_count < self._max_parallel
 
     def available_gpus(self) -> List[int]:
-        return [gpu_id for gpu_id in self._gpu_ids if gpu_id not in self._active]
+        return list(self._gpu_ids)
 
     def acquire(self, trial_name: str) -> int:
         if not self.can_start():
             raise RuntimeError("No GPU slot is available")
-        gpu_id = self.available_gpus()[0]
-        self._active[gpu_id] = trial_name
+        if trial_name in self._active:
+            raise KeyError(f"Trial {trial_name} is already active")
+        gpu_id = self._gpu_ids[self._next_gpu_index]
+        self._next_gpu_index = (self._next_gpu_index + 1) % len(self._gpu_ids)
+        self._active[trial_name] = gpu_id
         return gpu_id
 
-    def release(self, gpu_id: int) -> None:
-        if gpu_id not in self._active:
-            raise KeyError(f"GPU {gpu_id} is not active")
-        del self._active[gpu_id]
+    def release(self, trial_name: str) -> None:
+        if trial_name not in self._active:
+            raise KeyError(f"Trial {trial_name} is not active")
+        del self._active[trial_name]
 
 
 def parse_gpu_ids(value: str) -> List[int]:
@@ -359,9 +363,8 @@ def run_trials(
     log_dir = output_root / "logs"
 
     if dry_run:
-        dry_run_gpu_ids = gpu_ids[: min(max_parallel, len(gpu_ids))]
         for idx, trial in enumerate(pending):
-            gpu_id = dry_run_gpu_ids[idx % len(dry_run_gpu_ids)]
+            gpu_id = gpu_ids[idx % len(gpu_ids)]
             _write_trial_config(base_config, trial, trial.params, gpu_id)
             results.append(
                 {
@@ -398,7 +401,7 @@ def run_trials(
                 continue
 
             running.log_file.close()
-            scheduler.release(running.gpu_id)
+            scheduler.release(running.trial.name)
             result = parse_trial_result(running.trial, return_code, running.log_path)
             results.append(result)
             write_summary(results, output_root)
@@ -417,7 +420,12 @@ def build_argparser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Run a YAML-defined VIPlanner training parameter sweep.")
     parser.add_argument("--sweep-config", required=True, help="Path to the sweep YAML file.")
     parser.add_argument("--gpus", required=True, help="Comma-separated GPU IDs available for tuning runs.")
-    parser.add_argument("--max-parallel", type=int, default=1, help="Maximum number of concurrent training runs.")
+    parser.add_argument(
+        "--max-parallel",
+        type=int,
+        default=1,
+        help="Maximum total number of concurrent training runs; values above the GPU count oversubscribe GPUs.",
+    )
     parser.add_argument("--max-trials", type=int, default=None, help="Limit the number of expanded grid trials.")
     parser.add_argument("--dry-run", action="store_true", help="Generate configs and summaries without training.")
     parser.add_argument(

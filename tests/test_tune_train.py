@@ -132,7 +132,19 @@ class TuneTrainTest(unittest.TestCase):
             self.assertEqual(saved["config"]["gpu_id"], 2)
             self.assertEqual(saved["config"]["model_dir_name"], "trial_0000")
 
-    def test_gpu_scheduler_does_not_double_assign_active_gpu(self):
+    def test_gpu_scheduler_allows_oversubscribing_gpus(self):
+        scheduler = GpuScheduler([0, 1], max_parallel=4)
+
+        assigned_gpus = [scheduler.acquire(f"trial_{idx:04d}") for idx in range(4)]
+
+        self.assertEqual(assigned_gpus, [0, 1, 0, 1])
+        self.assertFalse(scheduler.can_start())
+
+        scheduler.release("trial_0001")
+        self.assertTrue(scheduler.can_start())
+        self.assertEqual(scheduler.acquire("trial_0004"), 0)
+
+    def test_gpu_scheduler_preserves_one_slot_per_gpu_when_parallel_matches_gpu_count(self):
         scheduler = GpuScheduler([0, 1], max_parallel=2)
 
         first_gpu = scheduler.acquire("trial_0000")
@@ -141,7 +153,7 @@ class TuneTrainTest(unittest.TestCase):
         self.assertNotEqual(first_gpu, second_gpu)
         self.assertFalse(scheduler.can_start())
 
-        scheduler.release(first_gpu)
+        scheduler.release("trial_0000")
         self.assertTrue(scheduler.can_start())
         self.assertEqual(scheduler.acquire("trial_0002"), first_gpu)
 

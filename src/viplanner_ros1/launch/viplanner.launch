@@ -1,0 +1,7 @@
+<launch>
+  <arg name="config_file" default="$(find viplanner_ros1)/config/viplanner.yaml"/>
+
+  <node pkg="viplanner_ros1" type="viplanner_node.py" name="viplanner_node" output="screen">
+    <rosparam command="load" file="$(arg config_file)"/>
+  </node>
+</launch>

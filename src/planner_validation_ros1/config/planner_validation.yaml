@@ -1,0 +1,22 @@
+main_freq: 5
+validation_paths_file: scenarios/validation_forest.txt
+log_dir: logs
+
+planner_id: ppo
+run_id: ""
+
+goal_topic: /way_point
+start_pose_topic: /drone_1/start_pose
+planner_status_topic: /viplanner/status
+collision_topic: /drone_1/collision
+
+robot_id: d1_base_link
+world_id: world
+
+start_yaw_offset_rad: 0.0
+trial_timeout_sec: 30.0
+start_arrival_thresh: 0.5
+goal_arrival_thresh: 0.25
+
+debug_csv_columns: false
+shutdown_on_complete: false

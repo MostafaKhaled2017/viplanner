@@ -1,11 +1,10 @@
-# viplanner_ros2
+# viplanner_ros1
 
-Standalone ROS2 package for evaluating VIPlanner models.
-
+Standalone ROS1 Noetic package for evaluating VIPlanner models.
 
 ## What The Node Does
 
-The `viplanner_node`:
+The `viplanner_node.py` node:
 
 - loads a trained VIPlanner model directory containing `model.pt` and `model.yaml`
 - reads the saved training config to choose depth-only, RGB, or semantic input mode
@@ -13,28 +12,16 @@ The `viplanner_node`:
 - runs VIPlanner inference and trajectory interpolation
 - publishes a local path, fear path, planner status, and inference timing
 
-## Model Directory
-
-Set `model_save` to the directory produced by training:
-
-```text
-<experiment_root>/models/<run_name>
-├── model.pt
-└── model.yaml
-```
-
-Both files are required. The YAML file is used to reconstruct the model architecture, so keep it with the checkpoint.
-
 ## Build
 
-From a ROS2 workspace containing this repository:
+From a ROS1 Noetic catkin workspace containing this repository:
 
 ```bash
-colcon build --packages-select viplanner_ros2
-source install/setup.bash
+catkin_make --pkg viplanner_ros1
+source devel/setup.bash
 ```
 
-The package depends on standard ROS2 Python packages plus Python runtime dependencies used by VIPlanner inference, including `torch`, `torchvision`, `numpy`, `Pillow`, `opencv-python`, and `PyYAML`.
+The package depends on standard ROS1 Python packages plus Python runtime dependencies used by VIPlanner inference, including `torch`, `torchvision`, `numpy`, `Pillow`, `opencv-python`, and `PyYAML`.
 
 Semantic mode additionally requires an installed external semantic inference backend:
 
@@ -43,7 +30,7 @@ Semantic mode additionally requires an installed external semantic inference bac
 
 ## Configure
 
-Default parameters are in `config/viplanner.yaml`.
+Default parameters are in `config/viplanner.yaml`. They intentionally match the ROS2 package names where ROS1 syntax allows it.
 
 Important parameters:
 
@@ -67,31 +54,25 @@ Important parameters:
 - `joyGoal_scale`: scale for smart joystick goals
 - `subgoal_max_distance`: maximum robot-frame XY distance passed to the network
 
-The dimension parameters are checked before preprocessing. Set them to the exact width and height produced by the simulator, not merely the model resize target, unless those are the same.
-
 ## Launch
 
 Launch with the packaged config:
 
 ```bash
-ros2 launch viplanner_ros2 viplanner.launch.py
+roslaunch viplanner_ros1 viplanner.launch
 ```
 
-Run directly with a config file:
+Launch with a custom config:
 
 ```bash
-ros2 run viplanner_ros2 viplanner_node --ros-args --params-file src/viplanner_ros2/config/viplanner.yaml
+roslaunch viplanner_ros1 viplanner.launch config_file:=/path/to/viplanner.yaml
 ```
 
-Override the model directory when running the node directly:
+Run directly:
 
 ```bash
-ros2 run viplanner_ros2 viplanner_node --ros-args \
-  --params-file src/viplanner_ros2/config/viplanner.yaml \
-  -p model_save:=/path/to/experiment/models/2026-05-19_12-00-00
+rosrun viplanner_ros1 viplanner_node.py _model_save:=/path/to/experiment/models/2026-05-19_12-00-00
 ```
-
-For launch-based workflows, edit `config/viplanner.yaml` or use a project-specific launch file that passes parameter overrides to `viplanner_node`.
 
 ## Topics
 
@@ -118,19 +99,8 @@ Planner status values:
 - `1`: goal reached
 - `-1`: fear reaction active
 
-## Input Modes
-
-The node selects its input mode from `model.yaml`:
-
-- `sem: false`, `rgb: false`: depth-only planning
-- `rgb: true`: depth plus RGB image planning
-- `sem: true`: depth plus semantic image planning; semantic labels are generated from RGB input with Mask2Former
-
-RGB and semantic images are expected to be aligned with the depth stream for the current package version. The package does not perform RGB-depth image warping.
-
 ## Notes
 
 - ONNX checkpoints are not supported; use the PyTorch `model.pt` saved by `viplanner/train.py`.
 - Semantic dependencies are optional until a semantic checkpoint is used.
-- For reproducible evaluation, use the same camera orientation, depth scaling, and image size assumptions used during training.
-- Goal and camera transforms use the latest available TF transform, matching `ref/iplanner` and avoiding future-extrapolation warnings when image stamps run slightly ahead of buffered TF data.
+- Goal and camera transforms use the latest available TF transform, matching the ROS2 package behavior.

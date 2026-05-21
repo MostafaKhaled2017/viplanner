@@ -1,0 +1,7 @@
+<launch>
+  <arg name="config_file" default="$(find planner_validation_ros1)/config/planner_validation.yaml"/>
+
+  <node pkg="planner_validation_ros1" type="planner_validation_node.py" name="planner_validation_node" output="screen">
+    <rosparam command="load" file="$(arg config_file)"/>
+  </node>
+</launch>

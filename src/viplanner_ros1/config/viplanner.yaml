@@ -2,7 +2,7 @@ main_freq: 5
 verbose: false
 use_sim_time: true
 
-model_save: "/workspaces/viplanner/src/viplanner_ros1/models/2026-05-19_07-36-47"
+model_save: "/workspaces/viplanner/src/viplanner_ros1/final_models/trial_0169"
 
 depth_topic: /drone_1/depth
 depth_width: 640

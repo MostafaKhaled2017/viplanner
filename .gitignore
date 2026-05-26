@@ -90,6 +90,10 @@ coverage.xml
 .hypothesis/
 .pytest_cache/
 
+final_models
+models_v1
+checkpoint
+
 # Translations
 *.mo
 *.pot

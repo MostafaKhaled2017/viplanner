@@ -2,7 +2,9 @@
 python sim/RosProBridge/pro_bridge/bridge.py sim/RosProBridge/config/recv.json
 
 # Building the ros packages
-catkin build viplanner_pkgs
+catkin build viplanner_pkgs --cmake-args -DCMAKE_POLICY_VERSION_MINIMUM=3.5
+catkin build planner_validation_ros1 --cmake-args -DCMAKE_POLICY_VERSION_MINIMUM=3.5
+catkin build viplanner_ros1 --cmake-args -DCMAKE_POLICY_VERSION_MINIMUM=3.5
 
 # Data collection
 roslaunch viplanner_node data_collect_sim.launch
@@ -15,8 +17,20 @@ python viplanner/depth_reconstruct.py --config viplanner/config/costmap.yaml
 # Important params: map_name, robot_height, semantics, geometry
 python viplanner/cost_builder.py --config viplanner/config/costmap.yaml
 
+# Launch the planner package
+roslaunch viplanner_ros1 viplanner.launch
+
 # Launch planner validation package
 roslaunch planner_validation_ros1 planner_validation.launch
+
+# Data Debugging
+python viplanner/debug_project_cloud_to_images.py \
+  --config viplanner/config/costmap.yaml \
+  --start-idx 0 \
+  --max-images 20 \
+  --stride 2 \
+  --viewer \
+  --no-save-images
 
 # Sweep VIPlanner model directories with planner validation
 rosrun planner_validation_ros1 viplanner_model_sweep.py \
@@ -24,6 +38,9 @@ rosrun planner_validation_ros1 viplanner_model_sweep.py \
   --output-dir /workspaces/viplanner/src/planner_validation_ros1/logs \
   --viplanner-config /workspaces/viplanner/src/viplanner_ros1/config/viplanner.yaml \
   --validation-config /workspaces/viplanner/src/planner_validation_ros1/config/planner_validation.yaml
+
+# Copy models from server
+scp -r mkira@10.100.8.20:/home/projects/puh/viplanner/src/planner/models /workspaces/viplanner/src/viplanner_ros1/models
 
 # Run training
 # Adjust configs in viplanner/config/train.yaml

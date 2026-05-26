@@ -1,5 +1,5 @@
 config:
-  sem: false
+  sem: true
   rgb: false
   file_name: null
   seed: 0
@@ -50,7 +50,7 @@ config:
   pre_train_freeze: true
   decoder_small: false
 
-  resume: false
+  resume: true
   epochs: 500
   batch_size: 64
   hierarchical: false

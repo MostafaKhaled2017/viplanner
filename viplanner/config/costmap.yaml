@@ -1,6 +1,6 @@
 reconstruction:
   data_dir: "/workspaces/viplanner/src/planner/data"
-  env: forest_s3 # forest_s1_high , forest_s2, forest_s2_high, forest_s2_p2, forest_s3
+  env: forest_s2 # forest_s1_high , forest_s2, forest_s2_high, forest_s2_p2, forest_s3
   depth_suffix: "_cam0"
   sem_suffix: "_cam1"
   high_res_depth: false

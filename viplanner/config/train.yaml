@@ -18,14 +18,14 @@ config:
     real_world_data: false # rotate loaded images by 180 degrees
     carla: false # Apply carla specific filtering
     max_depth: 15.0
-    max_goal_distance: 20.0
+    max_goal_distance: 15.0
     min_goal_distance: 0.5
     distance_scheme:
       1: 0.2
-      5: 0.35
-      10: 0.25
-      15: 0.15
-      20: 0.05
+      3: 0.35
+      5: 0.25
+      7.5: 0.15
+      10: 0.05
     obs_cost_height: 1.5
     fov_scale: 1.0
     depth_scale: 1000.0 
@@ -44,7 +44,7 @@ config:
     - 640
   in_channel: 16 
   knodes: 5 
-  pre_train_sem: false # TODO : Update when we have a pretrained semantic model
+  pre_train_sem: true
   pre_train_cfg: m2f_model/coco/panoptic/maskformer2_R50_bs16_50ep.yaml
   pre_train_weights: m2f_model/coco/panoptic/model_final_94dc52.pkl
   pre_train_freeze: true

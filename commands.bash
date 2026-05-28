@@ -56,7 +56,7 @@ python3 viplanner/tune_train.py \
 
 # Generate Sementics from RGB
 python3 viplanner/generate_semantics.py \
-      --input /workspaces/viplanner/src/planner/data/forest_s1 \
+      --input /workspaces/viplanner/src/planner/data/forest_s1_high \
       --config /workspaces/viplanner/viplanner/third_party/mask2former/configs/coco/panoptic-segmentation/maskformer2_R50_bs16_50ep.yaml \
       --checkpoint /workspaces/viplanner/src/planner/models/mask2former_r50_lsj_8x2_50e_coco-panoptic_20220326_224516-11a44721.pth \
       --device cuda:0

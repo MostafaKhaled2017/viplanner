@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import sys
 from pathlib import Path
 from typing import Callable, Optional, Sequence
 
@@ -77,6 +78,7 @@ class Mask2FormerPredictor:
 
     @staticmethod
     def _init_detectron2_predictor(config_path: Path, checkpoint_path: Path, device: str):
+        Mask2FormerPredictor._add_mask2former_to_path()
         try:
             from detectron2.config import get_cfg
             from detectron2.engine.defaults import DefaultPredictor
@@ -96,6 +98,19 @@ class Mask2FormerPredictor:
         cfg.MODEL.DEVICE = device
         cfg.freeze()
         return DefaultPredictor(cfg)
+
+    @staticmethod
+    def _add_mask2former_to_path() -> None:
+        for parent in Path(__file__).resolve().parents:
+            mask2former_root = parent / "viplanner" / "third_party" / "mask2former"
+            if not mask2former_root.is_dir():
+                continue
+            ops_build_dir = mask2former_root / "mask2former" / "modeling" / "pixel_decoder" / "ops" / "build"
+            for path in (mask2former_root, *sorted(ops_build_dir.glob("lib.*"))):
+                path_str = str(path)
+                if path_str not in sys.path:
+                    sys.path.insert(0, path_str)
+            return
 
     @staticmethod
     def _class_color(category_id: int, id_to_class: dict[int, str], warn_fn=None):

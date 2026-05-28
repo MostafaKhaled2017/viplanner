@@ -21,6 +21,10 @@ echo 'export ROS_VERSION=1' >> ~/.bashrc
 echo 'source /opt/ros/noetic/setup.bash' >> ~/.bashrc
 echo 'source /workspaces/viplanner/devel/setup.bash' >> ~/.bashrc
 
+# Update hosts
+echo "127.0.1.1 pc" >> /etc/hosts
+
+
 # Installing rospy and zmq
 sudo apt install python3-rospy
 pip install zmq

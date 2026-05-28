@@ -44,7 +44,7 @@ scp -r mkira@10.100.8.20:/home/projects/puh/viplanner/src/planner/models /worksp
 
 # Run training
 # Adjust configs in viplanner/config/train.yaml
-python viplanner/train.py --config viplanner/config/train.yaml --no-test-visualizations
+python viplanner/train.py --config viplanner/config/train.yaml --resume-from /workspaces/viplanner/viplanner/checkpoint --no-test-visualizations
 
 # Running tensorboard
 tensorboard --logdir src/planner/logs --host 0.0.0.0 --port 6006

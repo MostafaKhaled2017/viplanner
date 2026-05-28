@@ -40,19 +40,24 @@ class _FakeWriter:
 
 
 class _EarlyStopTrainer(Trainer):
-    def __init__(self, val_losses, early_stop_patience, model_path):
+    def __init__(self, val_losses, early_stop_patience, model_path, checkpoint_interval=10):
+        model_path = Path(model_path)
         self._cfg = SimpleNamespace(
             epochs=len(val_losses),
             resume=False,
             resume_model_path=None,
             hierarchical=False,
             early_stop_patience=early_stop_patience,
+            checkpoint_interval=checkpoint_interval,
         )
         self._val_losses = list(val_losses)
         self._epochs_seen = []
         self.best_loss = float("inf")
         self.net = _FakeNet()
         self.model_path = str(model_path)
+        checkpoint_dir = model_path.parent / "checkpoints"
+        checkpoint_dir.mkdir(parents=True, exist_ok=True)
+        self.checkpoint_dir = str(checkpoint_dir)
         self.scheduler = _FakeScheduler()
         self.data_generators = []
         self.log_writer = None
@@ -84,6 +89,9 @@ class TrainingEarlyStoppingTest(unittest.TestCase):
     def test_train_cfg_defaults_early_stop_patience_to_ten(self):
         self.assertEqual(TrainCfg().early_stop_patience, 10)
 
+    def test_train_cfg_defaults_checkpoint_interval_to_ten(self):
+        self.assertEqual(TrainCfg().checkpoint_interval, 10)
+
     def test_train_cfg_loads_early_stop_patience_from_yaml(self):
         with tempfile.TemporaryDirectory() as tmp_dir:
             config_path = Path(tmp_dir) / "train.yaml"
@@ -92,6 +100,15 @@ class TrainingEarlyStoppingTest(unittest.TestCase):
             cfg = TrainCfg.from_yaml(str(config_path))
 
             self.assertEqual(cfg.early_stop_patience, 7)
+
+    def test_train_cfg_loads_checkpoint_interval_from_yaml(self):
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            config_path = Path(tmp_dir) / "train.yaml"
+            config_path.write_text(yaml.safe_dump({"config": {"checkpoint_interval": 3}}))
+
+            cfg = TrainCfg.from_yaml(str(config_path))
+
+            self.assertEqual(cfg.checkpoint_interval, 3)
 
     @unittest.skipIf(TRAINER_IMPORT_ERROR is not None, f"Trainer import failed: {TRAINER_IMPORT_ERROR}")
     def test_training_stops_after_consecutive_non_improving_validation_epochs(self):
@@ -107,6 +124,38 @@ class TrainingEarlyStoppingTest(unittest.TestCase):
             self.assertEqual(trainer._epochs_seen, [0, 1, 2])
             self.assertEqual(trainer.best_loss, 1.0)
             self.assertEqual(trainer.scheduler.metrics, [1.0, 1.0, 1.0])
+
+    @unittest.skipIf(TRAINER_IMPORT_ERROR is not None, f"Trainer import failed: {TRAINER_IMPORT_ERROR}")
+    def test_training_saves_periodic_checkpoints_without_replacing_best_model(self):
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            model_path = Path(tmp_dir) / "model.pt"
+            trainer = _EarlyStopTrainer(
+                val_losses=[1.0] * 20,
+                early_stop_patience=25,
+                model_path=model_path,
+                checkpoint_interval=10,
+            )
+
+            trainer.train()
+
+            self.assertTrue(model_path.is_file())
+            self.assertTrue((Path(trainer.checkpoint_dir) / "checkpoint_epoch_0010.pt").is_file())
+            self.assertTrue((Path(trainer.checkpoint_dir) / "checkpoint_epoch_0020.pt").is_file())
+            self.assertFalse((Path(trainer.checkpoint_dir) / "checkpoint_epoch_0009.pt").exists())
+
+    @unittest.skipIf(TRAINER_IMPORT_ERROR is not None, f"Trainer import failed: {TRAINER_IMPORT_ERROR}")
+    def test_non_positive_checkpoint_interval_disables_periodic_checkpoints(self):
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            trainer = _EarlyStopTrainer(
+                val_losses=[1.0] * 10,
+                early_stop_patience=25,
+                model_path=Path(tmp_dir) / "model.pt",
+                checkpoint_interval=0,
+            )
+
+            trainer.train()
+
+            self.assertEqual(list(Path(trainer.checkpoint_dir).iterdir()), [])
 
     @unittest.skipIf(TRAINER_IMPORT_ERROR is not None, f"Trainer import failed: {TRAINER_IMPORT_ERROR}")
     def test_epoch_tensorboard_logs_total_loss_before_components(self):

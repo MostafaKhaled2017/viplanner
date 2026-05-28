@@ -60,6 +60,8 @@ class Trainer:
         # set model save/load path
         os.makedirs(self._cfg.curr_model_dir, exist_ok=True)
         self.model_path = os.path.join(self._cfg.curr_model_dir, "model.pt")
+        self.checkpoint_dir = os.path.join(self._cfg.curr_model_dir, "checkpoints")
+        os.makedirs(self.checkpoint_dir, exist_ok=True)
         self.config_path = os.path.join(self._cfg.curr_model_dir, "model.yaml")
         self.log_path = os.path.join(self._cfg.log_dir, self._cfg.get_model_save())
         self.log_writer: Optional[SummaryWriter] = None
@@ -157,6 +159,14 @@ class Trainer:
                 )
 
             self.scheduler.step(val_loss)
+
+            if self._cfg.checkpoint_interval > 0 and (epoch + 1) % self._cfg.checkpoint_interval == 0:
+                checkpoint_path = os.path.join(
+                    self.checkpoint_dir,
+                    f"checkpoint_epoch_{epoch + 1:04d}.pt",
+                )
+                print(f"[INFO] Save periodic checkpoint of epoch {epoch + 1} to {checkpoint_path}")
+                torch.save((self.net.state_dict(), val_loss), checkpoint_path)
 
             if early_stop_counter >= self._cfg.early_stop_patience:
                 print("[INFO] Early stopping patience reached")

@@ -54,6 +54,7 @@ config:
   resume: true
   epochs: 500
   batch_size: 64
+  checkpoint_interval: 10
   hierarchical: false
   hierarchical_step: 50
   hierarchical_front_step_ratio: 0.02

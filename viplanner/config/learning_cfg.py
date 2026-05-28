@@ -190,6 +190,8 @@ class TrainCfg:
     "number of training epochs"
     batch_size: int = 64
     "number of minibatch size"
+    checkpoint_interval: int = 10
+    "number of epochs between periodic checkpoints; disabled when <= 0"
     hierarchical: bool = False
     hierarchical_step: int = 50
     hierarchical_front_step_ratio: float = 0.02

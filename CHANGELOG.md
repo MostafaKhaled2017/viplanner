@@ -1,3 +1,34 @@
+## 2026-05-28 08:17 - Add periodic VIPlanner training checkpoints
+
+**Change size**
+- `S`
+
+**Files changed**
+- `viplanner/config/learning_cfg.py`
+- `viplanner/config/train.yaml`
+- `viplanner/utils/trainer.py`
+- `tests/test_training_early_stopping.py`
+- `CHANGELOG.md`
+
+**What changed**
+- Added `checkpoint_interval` to the training config with a default of `10`.
+- Added a `checkpoints` directory under each training run directory.
+- Added periodic checkpoint saves named `checkpoint_epoch_XXXX.pt` after completed epochs matching the configured interval.
+- Kept `model.pt` as the best-validation checkpoint and preserved its existing save format.
+- Allowed `checkpoint_interval <= 0` to disable periodic checkpoint saves.
+- Added focused tests for the default config value, YAML loading, periodic save naming, best-checkpoint coexistence, and disabled interval behavior.
+
+**Context**
+- Long training runs need periodic snapshots in addition to the best-validation checkpoint so intermediate model states are available for later inspection or recovery.
+
+**Validation**
+- `pytest -q tests/test_training_early_stopping.py`
+- `pytest -q tests/test_training_run_directory.py`
+
+**Notes**
+- Periodic checkpoints are retained indefinitely; no deletion or retention policy was added.
+- Test runs passed with existing environment warnings about CUDA availability and pytest cache permissions.
+
 ## 2026-05-28 07:26 - Add configurable VIPlanner encoder freezing
 
 **Change size**

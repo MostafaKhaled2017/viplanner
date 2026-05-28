@@ -170,6 +170,8 @@ The first step in training the policy is to build a cost-map from the available 
 2. Training <br>
 Once the cost-map is constructed, the next step is to train the policy. The policy is a machine learning model that learns to make decisions based on depth and semantic measurements. An example training script can be found [here](viplanner/train.py) with configs [here](viplanner/config/learning_cfg.py)
 
+For fine-tuning on a small dataset, set `freeze_layers` in `viplanner/config/train.yaml` to freeze early `PlannerNet` encoder stages while keeping the decoder trainable. The default `0` trains the whole model; `4` freezes `conv1` through `layer3`, and `5` freezes the full encoder.
+
 3. Evaluation <br>
 Performance assessment can be performed on simulation and real-world data. The policy will be evaluated regarding multiple metrics such as distance to the goal, average and maximum cost, and path length. In order to let the policy be executed on anymal in simulation, please refer to [Omniverse Extension](./omniverse/README.md)
 

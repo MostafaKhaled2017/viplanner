@@ -142,3 +142,16 @@ directory or checkpoint file:
 python viplanner/train.py --resume-from file_path/models/YYYY-MM-DD_HH-MM-SS
 python viplanner/train.py --resume-from file_path/models/YYYY-MM-DD_HH-MM-SS/model.pt
 ```
+
+For fine-tuning on a small dataset, `TrainCfg.freeze_layers` can freeze the early `PlannerNet` encoder stages while
+keeping the trajectory decoder trainable. The default `freeze_layers: 0` preserves full training. Values `1` through
+`5` freeze progressively more encoder stages:
+
+``` yaml
+config:
+  freeze_layers: 4  # freeze conv1, layer1, layer2, and layer3
+```
+
+The stage mapping is `1: conv1`, `2: conv1 + layer1`, `3: + layer2`, `4: + layer3`, and `5: + layer4`.
+This applies to all `PlannerNet` encoders in the model, including the depth and semantic branches of
+`DualAutoEncoder`. It does not override `pre_train_freeze` for the pretrained RGB/Mask2Former encoder path.

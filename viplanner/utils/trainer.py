@@ -30,6 +30,7 @@ from viplanner.plannernet import (
     DualAutoEncoder,
     get_m2f_cfg,
 )
+from viplanner.plannernet.PlannerNet import PlannerNet
 from viplanner.traj_cost_opt import TrajCost, TrajViz
 from viplanner.utils.torchutil import EarlyStopScheduler, count_parameters
 
@@ -431,7 +432,6 @@ class Trainer:
         print(f"Available GPU list: {list(range(torch.cuda.device_count()))}")
         print(f"Running on GPU: {self._cfg.gpu_id}")
         self.net = self.net.cuda(self._cfg.gpu_id)
-        print(f"[INFO] MODEL LOADED ({count_parameters(self.net)} parameters)")
 
         if resume:
             load_path = self._resolve_checkpoint_path(checkpoint_path or self.model_path)
@@ -442,18 +442,55 @@ class Trainer:
                 torch.save((self.net.state_dict(), self.best_loss), self.model_path)
                 print(f"[INFO] Save resume checkpoint copy to {self.model_path}")
 
+        self._apply_freeze_layers()
+        print(f"[INFO] MODEL LOADED ({count_parameters(self.net)} trainable parameters)")
+        return
+
+    def _apply_freeze_layers(self) -> None:
+        freeze_layers = self._cfg.freeze_layers
+        if isinstance(freeze_layers, bool) or not isinstance(freeze_layers, int):
+            raise ValueError(f"freeze_layers must be an integer in [0, 5], got {freeze_layers!r}")
+        if freeze_layers < 0 or freeze_layers > 5:
+            raise ValueError(f"freeze_layers must be an integer in [0, 5], got {freeze_layers}")
+        if freeze_layers == 0:
+            return
+
+        stage_names = ("conv1", "layer1", "layer2", "layer3", "layer4")
+        frozen_stages = stage_names[:freeze_layers]
+        frozen_encoders = []
+
+        for encoder_name in ("encoder", "encoder_depth", "encoder_sem"):
+            encoder = getattr(self.net, encoder_name, None)
+            if not isinstance(encoder, PlannerNet):
+                continue
+
+            for stage_name in frozen_stages:
+                stage = getattr(encoder, stage_name)
+                for param in stage.parameters():
+                    param.requires_grad = False
+            frozen_encoders.append(encoder_name)
+
+        if frozen_encoders:
+            print(
+                "[INFO] Frozen PlannerNet encoder stages "
+                f"{', '.join(frozen_stages)} for {', '.join(frozen_encoders)}"
+            )
         return
 
     def _configure_optimizer(self) -> None:
+        trainable_params = [param for param in self.net.parameters() if param.requires_grad]
+        if not trainable_params:
+            raise ValueError("No trainable parameters remain after applying freeze_layers")
+
         if self._cfg.optimizer == "adam":
             self.optimizer = optim.Adam(
-                self.net.parameters(),
+                trainable_params,
                 lr=self._cfg.lr,
                 weight_decay=self._cfg.w_decay,
             )
         elif self._cfg.optimizer == "sgd":
             self.optimizer = optim.SGD(
-                self.net.parameters(),
+                trainable_params,
                 lr=self._cfg.lr,
                 momentum=self._cfg.momentum,
                 weight_decay=self._cfg.w_decay,

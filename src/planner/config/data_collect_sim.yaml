@@ -1,6 +1,6 @@
 # Output
 dataset_root: /workspaces/viplanner/src/planner/data
-env_name: forest_s1_high
+env_name: warehouse
 
 # Simulator topics
 depth_topic: /drone_1/depth

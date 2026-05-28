@@ -49,6 +49,7 @@ config:
   pre_train_weights: m2f_model/coco/panoptic/model_final_94dc52.pkl
   pre_train_freeze: true
   decoder_small: false
+  freeze_layers: 5 # 0 means no freeze, 5 freezes all layers
 
   resume: true
   epochs: 500

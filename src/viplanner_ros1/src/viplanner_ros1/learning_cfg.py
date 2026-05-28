@@ -95,6 +95,7 @@ class TrainCfg:
     pre_train_weights: Optional[str] = "m2f_model/coco/panoptic/model_final_94dc52.pkl"
     pre_train_freeze: bool = True
     decoder_small: bool = False
+    freeze_layers: int = 0
     resume: bool = False
     resume_model_path: Optional[str] = None
     model_dir_name: Optional[str] = None

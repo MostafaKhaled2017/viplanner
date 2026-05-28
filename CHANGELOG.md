@@ -1,3 +1,39 @@
+## 2026-05-28 07:26 - Add configurable VIPlanner encoder freezing
+
+**Change size**
+- `M`
+
+**Files changed**
+- `viplanner/config/learning_cfg.py`
+- `viplanner/config/train.yaml`
+- `viplanner/utils/trainer.py`
+- `src/viplanner_ros1/src/viplanner_ros1/learning_cfg.py`
+- `tests/test_training_freeze_layers.py`
+- `README.md`
+- `TRAINING.md`
+- `CHANGELOG.md`
+
+**What changed**
+- Added `freeze_layers` to the training config with a default of `0`, preserving full-model training by default.
+- Added trainer logic that validates `freeze_layers` in `[0, 5]` and freezes progressively earlier `PlannerNet` encoder stages while leaving the decoder trainable.
+- Updated optimizer construction to include only trainable parameters after freezing.
+- Added ROS1 training-config compatibility so saved model configs containing `freeze_layers` can still be loaded by inference.
+- Added focused unit tests for config parsing, single- and dual-stream encoder freezing, invalid values, and optimizer parameter filtering.
+- Documented `freeze_layers` in the training docs and top-level training overview.
+
+**Context**
+- Fine-tuning VIPlanner on small new-simulator datasets needs a config-driven way to freeze stable visual encoder stages without editing training code.
+- The feature is limited to `PlannerNet` encoders; pretrained RGB/Mask2Former encoder freezing remains controlled by `pre_train_freeze`.
+
+**Validation**
+- `pytest -q tests/test_training_freeze_layers.py`
+- `pytest -q tests/test_training_freeze_layers.py tests/test_training_run_directory.py tests/test_training_early_stopping.py tests/test_viplanner_ros1_package.py`
+- `git diff --check -- CHANGELOG.md README.md TRAINING.md viplanner/config/learning_cfg.py viplanner/config/train.yaml viplanner/utils/trainer.py src/viplanner_ros1/src/viplanner_ros1/learning_cfg.py tests/test_training_freeze_layers.py`
+
+**Notes**
+- `freeze_layers: 4` freezes `conv1` through `layer3`; `freeze_layers: 5` freezes the full `PlannerNet` encoder.
+- The focused test runs passed with existing environment warnings about CUDA availability and pytest cache permissions.
+
 ## 2026-05-21 11:36 - Add external VIPlanner model sweep runner
 
 **Change size**

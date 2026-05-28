@@ -2,7 +2,7 @@ main_freq: 5
 verbose: false
 use_sim_time: true
 
-model_save: "/workspaces/viplanner/src/viplanner_ros1/final_models/trial_0169"
+model_save: "/workspaces/viplanner/viplanner/checkpoint"
 
 depth_topic: /drone_1/depth
 depth_width: 640
@@ -23,8 +23,8 @@ max_depth: 15.0
 image_flip: false
 conv_dist: 0.5
 
-m2f_config_path: ""
-m2f_model_path: ""
+m2f_config_path: "/workspaces/viplanner/viplanner/third_party/mask2former/configs/coco/panoptic-segmentation/maskformer2_R50_bs16_50ep.yaml"
+m2f_model_path: "/workspaces/viplanner/src/planner/models/mask2former_r50_lsj_8x2_50e_coco-panoptic_20220326_224516-11a44721.pth"
 m2f_device: cuda:0
 
 is_fear_act: false

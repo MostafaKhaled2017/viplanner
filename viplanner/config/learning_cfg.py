@@ -176,6 +176,8 @@ class TrainCfg:
     # NOTE: `pre_train_cfg` and `pre_train_weights` are assumed to be found under `file_path/models` (see above)
     decoder_small: bool = False
     "small decoder with less parameters"
+    freeze_layers: int = 0
+    "number of early PlannerNet encoder stages to freeze during training"
 
     # training configurations
     resume: bool = False

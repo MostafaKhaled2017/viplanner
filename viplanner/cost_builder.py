@@ -74,7 +74,7 @@ def run_from_config(config_path: str, final_viz: bool = True) -> None:
     robot_height_info = compute_robot_height_from_dataset(reconstruction_cfg)
     print(robot_height_info_message(robot_height_info))
 
-    cfg = CostMapConfig.from_yaml(config_path)
+    cfg = CostMapConfig.from_yaml(config_path, reconstruction_cfg=reconstruction_cfg)
     main(cfg, robot_height=robot_height_info.robot_height, final_viz=final_viz)
 
 

@@ -1,3 +1,113 @@
+## 2026-05-29 06:36 - Accept checkpoint interval in ROS1 inference config
+
+**Change size**
+- `S`
+
+**Files changed**
+- `src/viplanner_ros1/src/viplanner_ros1/learning_cfg.py`
+- `tests/test_viplanner_ros1_package.py`
+- `CHANGELOG.md`
+
+**What changed**
+- Added `checkpoint_interval` to the ROS1 inference training config dataclass with the same default used by the main training config.
+- Added a ROS1 package regression test that loads `checkpoint_interval` from a saved `model.yaml`.
+
+**Context**
+- Saved model configs can include `checkpoint_interval` after periodic training checkpoint support was added, but ROS1 inference still rejected that key while launching `viplanner_ros1`.
+
+**Validation**
+- `python3 -m pytest -q tests/test_viplanner_ros1_package.py`
+
+**Notes**
+- This change only updates config parsing compatibility; ROS1 inference behavior does not use periodic checkpoint settings at runtime.
+
+## 2026-05-28 09:13 - Add point cloud similarity metric script
+
+**Change size**
+- `S`
+
+**Files changed**
+- `viplanner/compare_point_clouds.py`
+- `tests/test_compare_point_clouds.py`
+- `commands.bash`
+- `CHANGELOG.md`
+
+**What changed**
+- Added a diagnostic CLI for comparing two PLY point clouds from an environment directory or explicit file paths.
+- Printed per-cloud metadata including point count, color/normal availability, XYZ bounds, extent, bounding-box diagonal, and centroid.
+- Added ordered XYZ error metrics, bidirectional nearest-neighbor distance metrics, and a tolerance-scaled `0-100` similarity score with a label.
+- Added a reusable command example for comparing `cloud.ply` and `cloud_original.ply` in `forest_s1_high`.
+- Added focused tests for identical, perturbed, reordered, offset, missing, and empty point-cloud inputs.
+
+**Context**
+- Different data environments save paired point clouds that need a diagnostic comparison showing how similar they are without failing solely because the clouds differ.
+
+**Validation**
+- `python3 -m pytest -q tests/test_compare_point_clouds.py`
+- `env PYTHONPYCACHEPREFIX=/tmp/viplanner_pycache python3 -m py_compile viplanner/compare_point_clouds.py tests/test_compare_point_clouds.py`
+- `git diff --check -- viplanner/compare_point_clouds.py tests/test_compare_point_clouds.py commands.bash CHANGELOG.md`
+
+**Notes**
+- The script exits successfully after metric computation regardless of similarity score.
+- `--similarity-distance-scale` is required so the score uses an explicit distance scale.
+
+## 2026-05-28 09:09 - Reduce depth sweep DataLoader shared-memory use
+
+**Change size**
+- `XS`
+
+**Files changed**
+- `viplanner/config/sweep_depth_geom.yaml`
+- `CHANGELOG.md`
+
+**What changed**
+- Added a sweep default of `num_workers: 0` for the depth/geometry tuning sweep.
+
+**Context**
+- Concurrent tuning runs inherit `num_workers: 16` from the base training config, which can spawn many DataLoader worker processes and exhaust `/dev/shm` on machines with limited shared memory.
+
+**Validation**
+- `python3 -c "import yaml; yaml.safe_load(open('viplanner/config/sweep_depth_geom.yaml'))"`
+- `git diff --check -- viplanner/config/sweep_depth_geom.yaml CHANGELOG.md`
+
+**Notes**
+- Training may load data more slowly with worker subprocesses disabled.
+- On machines with sufficient `/dev/shm`, `num_workers` can be raised in the sweep defaults for better input pipeline throughput.
+
+## 2026-05-28 08:40 - Derive cost map root path from reconstruction config
+
+**Change size**
+- `S`
+
+**Files changed**
+- `viplanner/config/costmap_cfg.py`
+- `viplanner/cost_builder.py`
+- `viplanner/config/costmap.yaml`
+- `commands.bash`
+- `tests/test_reconstruction_cfg.py`
+- `tests/test_cost_builder.py`
+- `CHANGELOG.md`
+
+**What changed**
+- Allowed `config.general.root_path` to be omitted or set to `null` in shared costmap configs.
+- Derived the cost map root path from `reconstruction.data_dir` and `reconstruction.env` when a shared config provides reconstruction settings.
+- Added a fail-fast validation error when an explicit `root_path` points to a different environment path.
+- Updated cost-map building to pass the already-loaded reconstruction config into cost-map config parsing.
+- Updated the sample costmap config and command comments to avoid duplicating the environment name.
+- Added focused tests for derived, matching, mismatched, and standalone cost-map path behavior.
+
+**Context**
+- Shared reconstruction and cost-map configs previously duplicated the environment name in both `reconstruction.env` and `config.general.root_path`, which could silently mix robot-height data from one environment with a point cloud path from another.
+
+**Validation**
+- `pytest tests/test_reconstruction_cfg.py tests/test_cost_builder.py tests/test_robot_height_cfg.py`
+- `git diff --check -- viplanner/config/costmap_cfg.py viplanner/cost_builder.py viplanner/config/costmap.yaml commands.bash tests/test_reconstruction_cfg.py tests/test_cost_builder.py CHANGELOG.md`
+
+**Notes**
+- Standalone cost-map configs without a `reconstruction` section keep their existing `root_path` behavior.
+- Existing generated map configs remain readable and continue to store explicit `root_path` values.
+- The focused pytest run passed with existing warnings about matplotlib deprecations and pytest cache permissions.
+
 ## 2026-05-28 08:17 - Add periodic VIPlanner training checkpoints
 
 **Change size**

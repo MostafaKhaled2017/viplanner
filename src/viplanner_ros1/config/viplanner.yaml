@@ -2,7 +2,7 @@ main_freq: 5
 verbose: false
 use_sim_time: true
 
-model_save: "/workspaces/viplanner/viplanner/checkpoint"
+model_save: "/workspaces/viplanner/src/planner/models/trial_0075"
 
 depth_topic: /drone_1/depth
 depth_width: 640
@@ -35,7 +35,7 @@ track_dist: 0.5
 joyGoal_scale: 2.5
 
 subgoal_max_distance: 35.0
-subgoal_update_distance: 7.0
+subgoal_update_distance: 3.0
 
 debug_enabled: false
 debug_dump_dir: /tmp/viplanner_ros_debug

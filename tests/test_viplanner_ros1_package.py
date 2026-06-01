@@ -51,6 +51,15 @@ class VIPlannerRos1PackageTest(unittest.TestCase):
                 self.assertEqual(cfg.rgb, rgb)
                 self.assertEqual(cfg.img_input_size, [360, 640])
 
+    def test_train_config_accepts_checkpoint_interval(self):
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            path = Path(tmp_dir) / "model.yaml"
+            path.write_text(yaml.safe_dump({"config": {"checkpoint_interval": 3}}))
+
+            cfg = TrainCfg.from_yaml(str(path))
+
+            self.assertEqual(cfg.checkpoint_interval, 3)
+
     def test_extract_state_dict_accepts_tuple_raw_and_model_key(self):
         raw = {"layer.weight": torch.tensor([1.0])}
         self.assertIs(extract_state_dict(raw), raw)

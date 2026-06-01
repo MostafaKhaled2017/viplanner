@@ -13,8 +13,8 @@ roslaunch viplanner_node data_collect_sim.launch
 python viplanner/depth_reconstruct.py --config viplanner/config/costmap.yaml
 
 # Generating PCL & Building cost map
-# Need also to adjust the config/costmap.yaml file
-# Important params: map_name, robot_height, semantics, geometry
+# Adjust reconstruction.env in config/costmap.yaml; root_path is derived from data_dir/env.
+# Important params: map_name, semantics, geometry
 python viplanner/cost_builder.py --config viplanner/config/costmap.yaml
 
 # Launch the planner package
@@ -27,20 +27,26 @@ roslaunch planner_validation_ros1 planner_validation.launch
 python viplanner/debug_project_cloud_to_images.py \
   --config viplanner/config/costmap.yaml \
   --start-idx 0 \
-  --max-images 20 \
+  --max-images 10 \
   --stride 2 \
+  --max-points 100000 \
   --viewer \
   --no-save-images
 
+# Compare reconstructed pointclouds
+python3 viplanner/compare_point_clouds.py \
+  --env-dir src/planner/data/forest_s3 \
+  --similarity-distance-scale 0.01
+
 # Sweep VIPlanner model directories with planner validation
 rosrun planner_validation_ros1 viplanner_model_sweep.py \
-  --models-parent /workspaces/viplanner/src/viplanner_ros1/models \
+  --models-parent /workspaces/viplanner/src/planner/models \
   --output-dir /workspaces/viplanner/src/planner_validation_ros1/logs \
   --viplanner-config /workspaces/viplanner/src/viplanner_ros1/config/viplanner.yaml \
   --validation-config /workspaces/viplanner/src/planner_validation_ros1/config/planner_validation.yaml
-
+  
 # Copy models from server
-scp -r mkira@10.100.8.20:/home/projects/puh/viplanner/src/planner/models /workspaces/viplanner/src/viplanner_ros1/models
+scp -r mkira@10.100.8.20:/home/projects/puh/viplanner/src/planner/models /workspaces/viplanner/src/planner/models
 
 # Run training
 # Adjust configs in viplanner/config/train.yaml

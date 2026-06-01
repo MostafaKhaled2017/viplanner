@@ -21,8 +21,8 @@ class TestCostBuilderCli(unittest.TestCase):
             z_range=0.0,
         )
 
-        with mock.patch.object(cost_builder.ReconstructionCfg, "from_yaml", return_value=reconstruction_cfg):
-            with mock.patch.object(cost_builder.CostMapConfig, "from_yaml", return_value=costmap_cfg):
+        with mock.patch.object(cost_builder.ReconstructionCfg, "from_yaml", return_value=reconstruction_cfg) as load_reconstruction:
+            with mock.patch.object(cost_builder.CostMapConfig, "from_yaml", return_value=costmap_cfg) as load_costmap:
                 with mock.patch.object(
                     cost_builder,
                     "compute_robot_height_from_dataset",
@@ -31,6 +31,8 @@ class TestCostBuilderCli(unittest.TestCase):
                     with mock.patch.object(cost_builder, "main") as build_costmap:
                         cost_builder.run_from_config("/tmp/costmap.yaml", final_viz=False)
 
+        load_reconstruction.assert_called_once_with("/tmp/costmap.yaml")
+        load_costmap.assert_called_once_with("/tmp/costmap.yaml", reconstruction_cfg=reconstruction_cfg)
         compute_height.assert_called_once_with(reconstruction_cfg)
         build_costmap.assert_called_once_with(costmap_cfg, robot_height=2.3, final_viz=False)
 

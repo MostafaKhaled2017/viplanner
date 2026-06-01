@@ -32,8 +32,8 @@ config:
   num_workers: 16
   load_in_ram: false
 
-  fear_ahead_dist: 2.5
-  w_obs: 0.25
+  fear_ahead_dist: 5.0
+  w_obs: 0.5
   w_height: 1.0
   w_motion: 1.5
   w_goal: 4.0
@@ -54,13 +54,13 @@ config:
   resume: true
   epochs: 500
   batch_size: 64
-  checkpoint_interval: 10
+  checkpoint_interval: 0
   hierarchical: false
   hierarchical_step: 50
   hierarchical_front_step_ratio: 0.02
   hierarchical_back_step_ratio: 0.01
 
-  lr: 0.002
+  lr: 0.001
   factor: 0.5
   min_lr: 0.00001
   patience: 5

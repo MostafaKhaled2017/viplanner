@@ -13,6 +13,9 @@ import numpy as np
 import yaml
 
 
+ROOT_PATH_PLACEHOLDER = "<path-to-data>/<env-name>"
+
+
 class Loader(yaml.SafeLoader):
     pass
 
@@ -107,6 +110,35 @@ def robot_height_info_message(info: RobotHeightInfo) -> str:
         f"(dataset altitude {info.altitude:.3f} m + margin {info.margin:.3f} m; "
         f"sampled {len(info.sample_indices)} frame(s), z range {info.z_range:.6f} m)"
     )
+
+
+def _normalized_config_path(path: str) -> str:
+    return os.path.abspath(os.path.expandvars(os.path.expanduser(path)))
+
+
+def _is_unset_root_path(root_path: Optional[str]) -> bool:
+    if root_path is None:
+        return True
+    return str(root_path).strip() in {"", ROOT_PATH_PLACEHOLDER}
+
+
+def _resolve_costmap_root_path(cfg: "GeneralCostMapConfig", reconstruction_cfg: "ReconstructionCfg") -> None:
+    expected_path = _normalized_config_path(reconstruction_cfg.get_data_path())
+
+    if _is_unset_root_path(cfg.root_path):
+        cfg.root_path = expected_path
+        return
+
+    configured_path = _normalized_config_path(str(cfg.root_path))
+    if configured_path != expected_path:
+        raise ValueError(
+            "Cost map root_path does not match reconstruction environment path. "
+            f"Expected '{expected_path}' from reconstruction.data_dir/reconstruction.env, "
+            f"but config.general.root_path is '{configured_path}'. "
+            "Set config.general.root_path to null or update it to the same environment."
+        )
+
+    cfg.root_path = configured_path
 
 
 def construct_GeneralCostMapConfig(loader, node):
@@ -274,7 +306,7 @@ class GeneralCostMapConfig:
     """General Cost Map Configuration"""
 
     # path to point cloud
-    root_path: str = "<path-to-data>/<env-name>"
+    root_path: Optional[str] = ROOT_PATH_PLACEHOLDER
     ply_file: str = "cloud.ply"
     # resolution of the cost map
     resolution: float = 0.04  # [m]  (0.04 for matterport, 0.1 for carla)
@@ -319,9 +351,16 @@ class CostMapConfig:
     y_start: float = None
 
     @classmethod
-    def from_yaml(cls, yaml_path: str):
+    def from_yaml(cls, yaml_path: str, reconstruction_cfg: Optional[ReconstructionCfg] = None):
         with open(yaml_path) as f:
             cfg_dict = yaml.load(f, Loader=Loader)
+
+        if not isinstance(cfg_dict, dict):
+            raise ValueError(f"Cost map config file must contain a mapping: {yaml_path}")
+
+        has_reconstruction_section = "reconstruction" in cfg_dict
+        if reconstruction_cfg is None and has_reconstruction_section:
+            reconstruction_cfg = ReconstructionCfg.from_yaml(yaml_path)
 
         config = dict(cfg_dict["config"]) if "config" in cfg_dict else dict(cfg_dict)
 
@@ -337,7 +376,11 @@ class CostMapConfig:
         if isinstance(tsdf_cost_map, dict):
             config["tsdf_cost_map"] = TsdfCostMapConfig(**tsdf_cost_map)
 
-        return cls(**config)
+        cfg = cls(**config)
+        if reconstruction_cfg is not None:
+            _resolve_costmap_root_path(cfg.general, reconstruction_cfg)
+
+        return cfg
 
 
 # EoF

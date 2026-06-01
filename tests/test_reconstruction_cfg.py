@@ -8,7 +8,7 @@ from unittest import mock
 
 import numpy as np
 
-from viplanner.config import ReconstructionCfg
+from viplanner.config import CostMapConfig, ReconstructionCfg
 
 
 class TestReconstructionCfg(unittest.TestCase):
@@ -87,6 +87,111 @@ class TestReconstructionCfg(unittest.TestCase):
 
             with self.assertRaisesRegex(ValueError, "top-level 'reconstruction' section"):
                 ReconstructionCfg.from_yaml(str(config_path))
+
+
+class TestCostMapRootPathResolution(unittest.TestCase):
+    def test_shared_config_with_null_root_path_derives_environment_path(self):
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            config_path = Path(tmp_dir) / "costmap.yaml"
+            config_path.write_text(
+                textwrap.dedent(
+                    f"""
+                    reconstruction:
+                      data_dir: {tmp_dir}
+                      env: forest
+                    config:
+                      geometry: true
+                      general:
+                        root_path: null
+                        ply_file: cloud.ply
+                    """
+                )
+            )
+
+            cfg = CostMapConfig.from_yaml(str(config_path))
+
+            self.assertEqual(cfg.general.root_path, str(Path(tmp_dir, "forest").resolve()))
+
+    def test_shared_config_with_omitted_root_path_derives_environment_path(self):
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            config_path = Path(tmp_dir) / "costmap.yaml"
+            config_path.write_text(
+                textwrap.dedent(
+                    f"""
+                    reconstruction:
+                      data_dir: {tmp_dir}
+                      env: forest
+                    config:
+                      geometry: true
+                      general:
+                        ply_file: cloud.ply
+                    """
+                )
+            )
+
+            cfg = CostMapConfig.from_yaml(str(config_path))
+
+            self.assertEqual(cfg.general.root_path, str(Path(tmp_dir, "forest").resolve()))
+
+    def test_shared_config_with_matching_root_path_passes(self):
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            env_path = Path(tmp_dir, "forest")
+            config_path = Path(tmp_dir) / "costmap.yaml"
+            config_path.write_text(
+                textwrap.dedent(
+                    f"""
+                    reconstruction:
+                      data_dir: {tmp_dir}
+                      env: forest
+                    config:
+                      geometry: true
+                      general:
+                        root_path: {env_path}
+                    """
+                )
+            )
+
+            cfg = CostMapConfig.from_yaml(str(config_path))
+
+            self.assertEqual(cfg.general.root_path, str(env_path.resolve()))
+
+    def test_shared_config_with_mismatched_root_path_fails(self):
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            config_path = Path(tmp_dir) / "costmap.yaml"
+            config_path.write_text(
+                textwrap.dedent(
+                    f"""
+                    reconstruction:
+                      data_dir: {tmp_dir}
+                      env: forest
+                    config:
+                      geometry: true
+                      general:
+                        root_path: {Path(tmp_dir, "other_forest")}
+                    """
+                )
+            )
+
+            with self.assertRaisesRegex(ValueError, "root_path does not match"):
+                CostMapConfig.from_yaml(str(config_path))
+
+    def test_standalone_costmap_config_preserves_default_root_path(self):
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            config_path = Path(tmp_dir) / "costmap.yaml"
+            config_path.write_text(
+                textwrap.dedent(
+                    """
+                    config:
+                      geometry: true
+                      general:
+                        ply_file: cloud.ply
+                    """
+                )
+            )
+
+            cfg = CostMapConfig.from_yaml(str(config_path))
+
+            self.assertEqual(cfg.general.root_path, "<path-to-data>/<env-name>")
 
 
 @unittest.skipUnless(importlib.util.find_spec("open3d") is not None, "open3d is required for CLI tests")

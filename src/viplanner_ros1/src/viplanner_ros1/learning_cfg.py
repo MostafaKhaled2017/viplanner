@@ -101,6 +101,7 @@ class TrainCfg:
     model_dir_name: Optional[str] = None
     epochs: int = 100
     batch_size: int = 64
+    checkpoint_interval: int = 10
     hierarchical: bool = False
     hierarchical_step: int = 50
     hierarchical_front_step_ratio: float = 0.02

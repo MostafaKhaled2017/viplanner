@@ -13,6 +13,7 @@ rgb_height: 360
 rgb_compressed: true
 goal_topic: /way_point
 path_topic: /drone_1/path_follow
+fear_topic: /viplanner/fear
 
 robot_id: d1_base_link
 world_id: world

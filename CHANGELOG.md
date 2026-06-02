@@ -1,3 +1,37 @@
+## 2026-06-02 07:04 - Publish ROS1 VIPlanner fear value
+
+**Change size**
+- `M`
+
+**Files changed**
+- `src/viplanner_ros1/msg/Fear.msg`
+- `src/viplanner_ros1/CMakeLists.txt`
+- `src/viplanner_ros1/package.xml`
+- `src/viplanner_ros1/scripts/viplanner_node.py`
+- `src/viplanner_ros1/config/viplanner.yaml`
+- `src/viplanner_ros1/README.md`
+- `tests/test_viplanner_ros1_package.py`
+- `CHANGELOG.md`
+
+**What changed**
+- Added a ROS1 `viplanner_ros1/Fear` message with a header and raw fear scalar field.
+- Added ROS1 message generation dependencies and declarations for the new message.
+- Added configurable `fear_topic` support and published the raw model fear value on every successful inference.
+- Documented the new topic and added package tests for the config, message definition, and message-generation metadata.
+
+**Context**
+- The ROS1 VIPlanner node exposed the buffered fear reaction through status and fear path topics, but did not publish the model's raw fear scalar for monitoring or downstream consumers.
+
+**Validation**
+- `python3 -m unittest tests/test_viplanner_ros1_package.py`
+- `env PYTHONPYCACHEPREFIX=/tmp/viplanner_pycache python3 -m py_compile src/viplanner_ros1/scripts/viplanner_node.py`
+- `git diff --check -- src/viplanner_ros1/CMakeLists.txt src/viplanner_ros1/package.xml src/viplanner_ros1/scripts/viplanner_node.py src/viplanner_ros1/config/viplanner.yaml src/viplanner_ros1/README.md tests/test_viplanner_ros1_package.py CHANGELOG.md src/viplanner_ros1/msg/Fear.msg`
+- `catkin_make --pkg viplanner_ros1` was attempted but did not complete because the existing `build/` directory was created by `catkin build`; an isolated `/tmp` build also could not create the normal catkin toplevel `src/CMakeLists.txt` in this sandbox.
+
+**Notes**
+- Publishing is independent of `is_fear_act`; the value reflects the raw model output, not the buffered fear-state activation.
+- `src/custom_path_msgs` remains unchanged because it is currently a ROS2/ament message package.
+
 ## 2026-05-29 06:36 - Accept checkpoint interval in ROS1 inference config
 
 **Change size**

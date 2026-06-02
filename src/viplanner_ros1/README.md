@@ -10,7 +10,7 @@ The `viplanner_node.py` node:
 - reads the saved training config to choose depth-only, RGB, or semantic input mode
 - subscribes to depth images, goals, joystick input, and RGB images when required
 - runs VIPlanner inference and trajectory interpolation
-- publishes a local path, fear path, planner status, and inference timing
+- publishes a local path, fear path, fear value, planner status, and inference timing
 
 ## Build
 
@@ -42,6 +42,7 @@ Important parameters:
 - `rgb_compressed`: set to `true` when `rgb_topic` publishes `sensor_msgs/CompressedImage`
 - `goal_topic`: `geometry_msgs/PointStamped` goal topic
 - `path_topic`: output `nav_msgs/Path` topic
+- `fear_topic`: output `viplanner_ros1/Fear` topic for the raw model fear value
 - `robot_id`: robot/base frame
 - `world_id`: world/odometry frame
 - `mount_cam_frame`: optional mounted camera frame override
@@ -88,6 +89,7 @@ Outputs:
 
 - path: `path_topic`
 - fear path: `path_topic + "_fear"`
+- fear value: `fear_topic` (`viplanner_ros1/Fear`)
 - planner status: `/viplanner/status`
 - planner inference time in milliseconds: `/viplanner/timer`
 - semantic inference time in milliseconds: `/viplanner/m2f_timer`

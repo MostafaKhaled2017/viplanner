@@ -3,6 +3,7 @@ project(viplanner_ros1)
 
 find_package(catkin REQUIRED COMPONENTS
   rospy
+  message_generation
   std_msgs
   sensor_msgs
   nav_msgs
@@ -13,9 +14,20 @@ find_package(catkin REQUIRED COMPONENTS
 
 catkin_python_setup()
 
+add_message_files(
+  FILES
+  Fear.msg
+)
+
+generate_messages(
+  DEPENDENCIES
+  std_msgs
+)
+
 catkin_package(
   CATKIN_DEPENDS
   rospy
+  message_runtime
   std_msgs
   sensor_msgs
   nav_msgs

@@ -16,6 +16,7 @@ from sensor_msgs.msg import CompressedImage, Image, Joy
 from std_msgs.msg import Float32, Int16
 from tf2_geometry_msgs import do_transform_point
 
+from viplanner_ros1.msg import Fear
 from viplanner_ros1.image_utils import (
     depth_msg_to_numpy,
     prepare_depth_image,
@@ -115,6 +116,7 @@ class VIPlannerNode:
         self.status_pub = rospy.Publisher("/viplanner/status", Int16, queue_size=10)
         self.path_pub = rospy.Publisher(self.path_topic, RosPath, queue_size=10)
         self.fear_path_pub = rospy.Publisher(self.path_topic + "_fear", RosPath, queue_size=10)
+        self.fear_pub = rospy.Publisher(self.fear_topic, Fear, queue_size=10)
         self.semantic_image_pub = rospy.Publisher("/viplanner/sem_image/compressed", CompressedImage, queue_size=3)
 
         rospy.loginfo("VIPlanner ROS1 Ready.")
@@ -134,6 +136,7 @@ class VIPlannerNode:
             "rgb_compressed": False,
             "goal_topic": "/way_point",
             "path_topic": "/viplanner/path",
+            "fear_topic": "/viplanner/fear",
             "robot_id": "base_link",
             "world_id": "odom",
             "mount_cam_frame": "",
@@ -168,6 +171,7 @@ class VIPlannerNode:
             "rgb_topic",
             "goal_topic",
             "path_topic",
+            "fear_topic",
             "robot_id",
             "world_id",
             "mount_cam_frame",
@@ -224,6 +228,12 @@ class VIPlannerNode:
             keypoints, traj, fear = self.planner.plan_depth(self.depth_img.copy(), self.goal_cam)
         elapsed_ms = (time.time() - start) * 1000.0
         self.timer_pub.publish(Float32(data=float(elapsed_ms)))
+        fear_value = fear_scalar(fear)
+        fear_msg = Fear()
+        fear_msg.header.stamp = self.depth_stamp or rospy.Time.now()
+        fear_msg.header.frame_id = self.robot_id
+        fear_msg.fear = fear_value
+        self.fear_pub.publish(fear_msg)
 
         traj_cam = traj.detach().cpu().squeeze(0).numpy()
         waypoints = traj_cam.copy()
@@ -239,7 +249,6 @@ class VIPlannerNode:
             rospy.loginfo("Goal Arrived")
 
         if self.is_fear_act:
-            fear_value = fear_scalar(fear)
             is_forward = is_forward_tracking(waypoints, self.track_dist, self.angular_thread)
             if self.fear_state.update(fear_value, is_forward):
                 rospy.logwarn("Current path prediction is invalid.")

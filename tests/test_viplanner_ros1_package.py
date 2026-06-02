@@ -150,6 +150,26 @@ class VIPlannerRos1PackageTest(unittest.TestCase):
         self.assertIn("debug_dump_dir", data)
         self.assertIn("debug_height_warn_threshold", data)
 
+    def test_ros1_fear_topic_config_and_message_generation(self):
+        config_path = PKG_ROOT / "config" / "viplanner.yaml"
+        data = yaml.safe_load(config_path.read_text())
+        self.assertEqual(data["fear_topic"], "/viplanner/fear")
+
+        msg_path = PKG_ROOT / "msg" / "Fear.msg"
+        msg_lines = [line.strip() for line in msg_path.read_text().splitlines() if line.strip()]
+        self.assertEqual(msg_lines, ["std_msgs/Header header", "float64 fear"])
+
+        cmake_text = (PKG_ROOT / "CMakeLists.txt").read_text()
+        self.assertIn("message_generation", cmake_text)
+        self.assertIn("add_message_files", cmake_text)
+        self.assertIn("Fear.msg", cmake_text)
+        self.assertIn("generate_messages", cmake_text)
+        self.assertIn("message_runtime", cmake_text)
+
+        package_text = (PKG_ROOT / "package.xml").read_text()
+        self.assertIn("<build_depend>message_generation</build_depend>", package_text)
+        self.assertIn("<exec_depend>message_runtime</exec_depend>", package_text)
+
     def test_package_imports_are_isolated_from_repo_modules(self):
         package_dir = PKG_ROOT / "src" / "viplanner_ros1"
         banned_exact = {"viplanner"}

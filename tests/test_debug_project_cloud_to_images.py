@@ -196,7 +196,7 @@ class TestDebugProjectCloudToImages(unittest.TestCase):
             context = DebugContext(
                 cfg=ReconstructionCfg(
                     data_dir=str(root),
-                    env="forest",
+                    env_list=["forest"],
                     depth_suffix="_cam0",
                     sem_suffix="_cam1",
                     depth_scale=1.0,
@@ -252,7 +252,8 @@ class TestDebugProjectCloudToImages(unittest.TestCase):
                     f"""
                     reconstruction:
                       data_dir: {root}
-                      env: forest
+                      env_list:
+                        - forest
                       depth_suffix: _cam0
                       sem_suffix: _cam1
                       depth_scale: 1000
@@ -325,7 +326,8 @@ class TestDebugProjectCloudToImages(unittest.TestCase):
                     f"""
                     reconstruction:
                       data_dir: {root}
-                      env: forest
+                      env_list:
+                        - forest
                       depth_suffix: _cam0
                       sem_suffix: _cam1
                       depth_scale: 1000

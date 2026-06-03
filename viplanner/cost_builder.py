@@ -71,11 +71,14 @@ def build_argparser() -> argparse.ArgumentParser:
 
 def run_from_config(config_path: str, final_viz: bool = True) -> None:
     reconstruction_cfg = ReconstructionCfg.from_yaml(config_path)
-    robot_height_info = compute_robot_height_from_dataset(reconstruction_cfg)
-    print(robot_height_info_message(robot_height_info))
+    for env_name in reconstruction_cfg.env_list:
+        env_reconstruction_cfg = reconstruction_cfg.for_env(env_name)
+        print(f"============ Processing environment: {env_name} ============")
+        robot_height_info = compute_robot_height_from_dataset(env_reconstruction_cfg)
+        print(robot_height_info_message(robot_height_info))
 
-    cfg = CostMapConfig.from_yaml(config_path, reconstruction_cfg=reconstruction_cfg)
-    main(cfg, robot_height=robot_height_info.robot_height, final_viz=final_viz)
+        cfg = CostMapConfig.from_yaml(config_path, reconstruction_cfg=env_reconstruction_cfg)
+        main(cfg, robot_height=robot_height_info.robot_height, final_viz=final_viz)
 
 
 if __name__ == "__main__":

@@ -13,7 +13,7 @@ roslaunch viplanner_node data_collect_sim.launch
 python viplanner/depth_reconstruct.py --config viplanner/config/costmap.yaml
 
 # Generating PCL & Building cost map
-# Adjust reconstruction.env in config/costmap.yaml; root_path is derived from data_dir/env.
+# Adjust reconstruction.env_list in config/costmap.yaml; root_path is the parent directory containing environments.
 # Important params: map_name, semantics, geometry
 python viplanner/cost_builder.py --config viplanner/config/costmap.yaml
 

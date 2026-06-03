@@ -29,7 +29,7 @@ class TestRobotHeightConfig(unittest.TestCase):
             self._write_extrinsics(tmp_dir, "forest", [2.0, 2.0, 2.0])
             cfg = ReconstructionCfg(
                 data_dir=tmp_dir,
-                env="forest",
+                env_list=["forest"],
                 depth_suffix="_cam0",
                 robot_height_margin=0.3,
                 robot_height_sample_count=2,
@@ -46,7 +46,7 @@ class TestRobotHeightConfig(unittest.TestCase):
             self._write_extrinsics(tmp_dir, "forest", [2.0, 2.005, 2.009])
             cfg = ReconstructionCfg(
                 data_dir=tmp_dir,
-                env="forest",
+                env_list=["forest"],
                 depth_suffix="_cam0",
                 robot_height_variation_threshold=0.01,
                 robot_height_sample_count=50,
@@ -61,7 +61,7 @@ class TestRobotHeightConfig(unittest.TestCase):
             self._write_extrinsics(tmp_dir, "forest", [2.0, 2.02, 2.0])
             cfg = ReconstructionCfg(
                 data_dir=tmp_dir,
-                env="forest",
+                env_list=["forest"],
                 depth_suffix="_cam0",
                 robot_height_variation_threshold=0.01,
                 robot_height_sample_count=50,
@@ -75,7 +75,7 @@ class TestRobotHeightConfig(unittest.TestCase):
             env_dir = Path(tmp_dir) / "forest"
             env_dir.mkdir()
             np.savetxt(env_dir / "camera_extrinsic_cam0.txt", np.array([[1.0, 2.0, 3.0]]), delimiter=",")
-            cfg = ReconstructionCfg(data_dir=tmp_dir, env="forest", depth_suffix="_cam0")
+            cfg = ReconstructionCfg(data_dir=tmp_dir, env_list=["forest"], depth_suffix="_cam0")
 
             with self.assertRaisesRegex(ValueError, "Expected camera extrinsics"):
                 compute_robot_height_from_dataset(cfg)
@@ -85,7 +85,7 @@ class TestRobotHeightConfig(unittest.TestCase):
             env_dir = Path(tmp_dir) / "forest"
             env_dir.mkdir()
             (env_dir / "camera_extrinsic_cam0.txt").write_text("")
-            cfg = ReconstructionCfg(data_dir=tmp_dir, env="forest", depth_suffix="_cam0")
+            cfg = ReconstructionCfg(data_dir=tmp_dir, env_list=["forest"], depth_suffix="_cam0")
 
             with self.assertRaisesRegex(ValueError, "Camera extrinsic file is empty"):
                 compute_robot_height_from_dataset(cfg)

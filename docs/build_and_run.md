@@ -16,11 +16,15 @@ Depth reconstruction:
 python viplanner/depth_reconstruct.py --config viplanner/config/costmap.yaml
 ```
 
+The reconstruction config uses `reconstruction.env_list`; the command processes each listed environment separately and writes each `cloud.ply` under that environment directory.
+
 Cost-map building:
 
 ```bash
 python viplanner/cost_builder.py --config viplanner/config/costmap.yaml
 ```
+
+Cost-map generation also processes each `reconstruction.env_list` entry separately. `config.general.root_path` is the parent directory that contains the environment directories.
 
 Training:
 

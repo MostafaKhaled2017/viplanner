@@ -13,12 +13,12 @@
 
 ## Python Package
 
-- `viplanner/cost_builder.py`: Cost-map build CLI.
-- `viplanner/depth_reconstruct.py`: Dataset depth reconstruction CLI.
+- `viplanner/cost_builder.py`: Cost-map build CLI that processes each `reconstruction.env_list` entry.
+- `viplanner/depth_reconstruct.py`: Dataset depth reconstruction CLI that reconstructs each `reconstruction.env_list` entry.
 - `viplanner/train.py`: Training CLI.
 - `viplanner/tune_train.py`: Sweep runner.
 - `viplanner/generate_semantics.py`: RGB-to-semantics generation CLI.
-- `viplanner/config/costmap.yaml`: Shared reconstruction and cost-map YAML.
+- `viplanner/config/costmap.yaml`: Shared reconstruction and cost-map YAML with multi-environment `env_list`.
 - `viplanner/config/train.yaml`: Training YAML.
 - `viplanner/config/costmap_cfg.py`: Cost-map and reconstruction config classes.
 - `viplanner/config/learning_cfg.py`: Training config classes.

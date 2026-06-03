@@ -212,24 +212,25 @@ class DepthReconstruction:
         if not self._is_constructed:
             print("save points failed, no reconstructed cloud!")
 
-        print("save output files to: " + os.path.join(self._cfg.data_dir, self._cfg.env))
+        data_path = self._cfg.get_data_path()
+        print("save output files to: " + data_path)
 
         # pre-create the folder for the mapping
         os.makedirs(
             os.path.join(
-                os.path.join(self._cfg.data_dir, self._cfg.env),
+                data_path,
                 "maps",
                 "cloud",
             ),
             exist_ok=True,
         )
         os.makedirs(
-            os.path.join(os.path.join(self._cfg.data_dir, self._cfg.env), "maps", "data"),
+            os.path.join(data_path, "maps", "data"),
             exist_ok=True,
         )
         os.makedirs(
             os.path.join(
-                os.path.join(self._cfg.data_dir, self._cfg.env),
+                data_path,
                 "maps",
                 "params",
             ),
@@ -238,7 +239,7 @@ class DepthReconstruction:
 
         # save clouds
         o3d.io.write_point_cloud(
-            os.path.join(self._cfg.data_dir, self._cfg.env, "cloud.ply"),
+            os.path.join(data_path, "cloud.ply"),
             self._pcd,
         )  # save point cloud
 
@@ -418,13 +419,16 @@ def build_argparser() -> argparse.ArgumentParser:
 def main(argv=None) -> int:
     args = build_argparser().parse_args(argv)
     cfg = ReconstructionCfg.from_yaml(args.config)
-    robot_height_info = compute_robot_height_from_dataset(cfg)
-    print(robot_height_info_message(robot_height_info))
+    for env_name in cfg.env_list:
+        env_cfg = cfg.for_env(env_name)
+        print(f"============ Processing environment: {env_name} ============")
+        robot_height_info = compute_robot_height_from_dataset(env_cfg)
+        print(robot_height_info_message(robot_height_info))
 
-    depth_constructor = DepthReconstruction(cfg, robot_height_info=robot_height_info)
-    depth_constructor.depth_reconstruction()
-    depth_constructor.save_pcd()
-    depth_constructor.show_pcd()
+        depth_constructor = DepthReconstruction(env_cfg, robot_height_info=robot_height_info)
+        depth_constructor.depth_reconstruction()
+        depth_constructor.save_pcd()
+        depth_constructor.show_pcd()
     return 0
 
 

@@ -23,6 +23,7 @@ python viplanner/cost_builder.py --config viplanner/config/costmap.yaml
 ```
 
 `viplanner/config/costmap.yaml` currently includes both a `reconstruction:` section and a `config:` section for cost-map generation.
+The reconstruction section uses `env_list`, and reconstruction/cost-map scripts process each listed environment independently.
 
 ## Working Tree Note
 
@@ -30,4 +31,12 @@ At the time this documentation was created, the repository already had uncommitt
 
 ## Validation Status
 
-Documentation files were added. No build, training, simulation, or test command was run for this documentation-only change.
+Targeted validation for the multi-environment reconstruction and cost-map config update passed:
+
+```bash
+pytest tests/test_reconstruction_cfg.py tests/test_robot_height_cfg.py tests/test_cost_builder.py
+pytest tests/test_debug_project_cloud_to_images.py
+pytest tests/test_reconstruction_cfg.py tests/test_robot_height_cfg.py tests/test_cost_builder.py tests/test_debug_project_cloud_to_images.py
+```
+
+All commands reported passing tests. Pytest emitted cache-write warnings because `.pytest_cache` could not be written in the workspace.

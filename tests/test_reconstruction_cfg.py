@@ -20,7 +20,8 @@ class TestReconstructionCfg(unittest.TestCase):
                     """
                     reconstruction:
                       data_dir: /tmp/dataset
-                      env: forest
+                      env_list:
+                        - forest
                       depth_suffix: _cam0
                       sem_suffix: _cam1
                       start_idx: 3
@@ -34,7 +35,8 @@ class TestReconstructionCfg(unittest.TestCase):
             cfg = ReconstructionCfg.from_yaml(str(config_path))
 
             self.assertEqual(cfg.data_dir, "/tmp/dataset")
-            self.assertEqual(cfg.env, "forest")
+            self.assertEqual(cfg.env_list, ["forest"])
+            self.assertEqual(cfg.get_data_path(), "/tmp/dataset/forest")
             self.assertEqual(cfg.depth_suffix, "_cam0")
             self.assertEqual(cfg.sem_suffix, "_cam1")
             self.assertEqual(cfg.start_idx, 3)
@@ -53,7 +55,8 @@ class TestReconstructionCfg(unittest.TestCase):
                 textwrap.dedent(
                     """
                     data_dir: /tmp/dataset
-                    env: warehouse
+                    env_list:
+                      - warehouse
                     max_images: null
                     depth_scale: 500
                     robot_height_margin: 0.4
@@ -66,7 +69,8 @@ class TestReconstructionCfg(unittest.TestCase):
             cfg = ReconstructionCfg.from_yaml(str(config_path))
 
             self.assertEqual(cfg.data_dir, "/tmp/dataset")
-            self.assertEqual(cfg.env, "warehouse")
+            self.assertEqual(cfg.env_list, ["warehouse"])
+            self.assertEqual(cfg.get_data_path(), "/tmp/dataset/warehouse")
             self.assertIsNone(cfg.max_images)
             self.assertEqual(cfg.depth_scale, 500)
             self.assertEqual(cfg.robot_height_margin, 0.4)
@@ -97,7 +101,8 @@ class TestReconstructionCfg(unittest.TestCase):
                     """
                     reconstruction:
                       data_dir: /tmp/dataset
-                      env: forest
+                      env_list:
+                        - forest
                       semantic_ignore_classes: []
                     config:
                       semantics: true
@@ -109,6 +114,51 @@ class TestReconstructionCfg(unittest.TestCase):
 
             self.assertEqual(cfg.semantic_ignore_classes, [])
 
+    def test_from_yaml_rejects_old_env_field(self):
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            config_path = Path(tmp_dir) / "costmap.yaml"
+            config_path.write_text(
+                textwrap.dedent(
+                    """
+                    reconstruction:
+                      data_dir: /tmp/dataset
+                      env: forest
+                    config:
+                      semantics: true
+                    """
+                )
+            )
+
+            with self.assertRaisesRegex(ValueError, "Use reconstruction.env_list"):
+                ReconstructionCfg.from_yaml(str(config_path))
+
+    def test_from_yaml_rejects_empty_env_list(self):
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            config_path = Path(tmp_dir) / "costmap.yaml"
+            config_path.write_text(
+                textwrap.dedent(
+                    """
+                    reconstruction:
+                      data_dir: /tmp/dataset
+                      env_list: []
+                    config:
+                      semantics: true
+                    """
+                )
+            )
+
+            with self.assertRaisesRegex(ValueError, "non-empty list"):
+                ReconstructionCfg.from_yaml(str(config_path))
+
+    def test_for_env_resolves_selected_environment_path(self):
+        cfg = ReconstructionCfg(data_dir="/tmp/dataset", env_list=["forest", "desert"])
+
+        env_cfg = cfg.for_env("desert")
+
+        self.assertEqual(env_cfg.get_data_path(), "/tmp/dataset/desert")
+        with self.assertRaisesRegex(ValueError, "before resolving"):
+            cfg.get_data_path()
+
 
 class TestCostMapRootPathResolution(unittest.TestCase):
     def test_shared_config_with_null_root_path_derives_environment_path(self):
@@ -119,7 +169,8 @@ class TestCostMapRootPathResolution(unittest.TestCase):
                     f"""
                     reconstruction:
                       data_dir: {tmp_dir}
-                      env: forest
+                      env_list:
+                        - forest
                     config:
                       geometry: true
                       general:
@@ -141,7 +192,8 @@ class TestCostMapRootPathResolution(unittest.TestCase):
                     f"""
                     reconstruction:
                       data_dir: {tmp_dir}
-                      env: forest
+                      env_list:
+                        - forest
                     config:
                       geometry: true
                       general:
@@ -156,27 +208,27 @@ class TestCostMapRootPathResolution(unittest.TestCase):
 
     def test_shared_config_with_matching_root_path_passes(self):
         with tempfile.TemporaryDirectory() as tmp_dir:
-            env_path = Path(tmp_dir, "forest")
             config_path = Path(tmp_dir) / "costmap.yaml"
             config_path.write_text(
                 textwrap.dedent(
                     f"""
                     reconstruction:
                       data_dir: {tmp_dir}
-                      env: forest
+                      env_list:
+                        - forest
                     config:
                       geometry: true
                       general:
-                        root_path: {env_path}
+                        root_path: {tmp_dir}
                     """
                 )
             )
 
             cfg = CostMapConfig.from_yaml(str(config_path))
 
-            self.assertEqual(cfg.general.root_path, str(env_path.resolve()))
+            self.assertEqual(cfg.general.root_path, str(Path(tmp_dir, "forest").resolve()))
 
-    def test_shared_config_with_mismatched_root_path_fails(self):
+    def test_shared_config_with_environment_root_path_fails(self):
         with tempfile.TemporaryDirectory() as tmp_dir:
             config_path = Path(tmp_dir) / "costmap.yaml"
             config_path.write_text(
@@ -184,16 +236,17 @@ class TestCostMapRootPathResolution(unittest.TestCase):
                     f"""
                     reconstruction:
                       data_dir: {tmp_dir}
-                      env: forest
+                      env_list:
+                        - forest
                     config:
                       geometry: true
                       general:
-                        root_path: {Path(tmp_dir, "other_forest")}
+                        root_path: {Path(tmp_dir, "forest")}
                     """
                 )
             )
 
-            with self.assertRaisesRegex(ValueError, "root_path does not match"):
+            with self.assertRaisesRegex(ValueError, "parent directory"):
                 CostMapConfig.from_yaml(str(config_path))
 
     def test_standalone_costmap_config_preserves_default_root_path(self):
@@ -231,7 +284,7 @@ class TestDepthReconstructCli(unittest.TestCase):
             )
             np.savetxt(env_dir / "intrinsics.txt", projection_rows, delimiter=",")
 
-            cfg = ReconstructionCfg(data_dir=tmp_dir, env="forest", semantics=False)
+            cfg = ReconstructionCfg(data_dir=tmp_dir, env_list=["forest"], semantics=False)
             reconstruction = depth_reconstruct.DepthReconstruction.__new__(depth_reconstruct.DepthReconstruction)
             reconstruction._cfg = cfg
 
@@ -253,7 +306,7 @@ class TestDepthReconstructCli(unittest.TestCase):
     def test_main_loads_yaml_config_and_runs_reconstruction(self):
         from viplanner import depth_reconstruct
 
-        cfg = ReconstructionCfg(data_dir="/tmp/dataset", env="forest")
+        cfg = ReconstructionCfg(data_dir="/tmp/dataset", env_list=["forest", "desert"])
         robot_height_info = SimpleNamespace(
             altitude=2.0,
             margin=0.3,
@@ -261,7 +314,7 @@ class TestDepthReconstructCli(unittest.TestCase):
             sample_indices=np.array([0]),
             z_range=0.0,
         )
-        constructor = mock.MagicMock()
+        constructors = [mock.MagicMock(), mock.MagicMock()]
 
         with mock.patch.object(depth_reconstruct.ReconstructionCfg, "from_yaml", return_value=cfg) as from_yaml:
             with mock.patch.object(
@@ -269,16 +322,29 @@ class TestDepthReconstructCli(unittest.TestCase):
                 "compute_robot_height_from_dataset",
                 return_value=robot_height_info,
             ) as compute_height:
-                with mock.patch.object(depth_reconstruct, "DepthReconstruction", return_value=constructor) as cls_mock:
+                with mock.patch.object(
+                    depth_reconstruct,
+                    "DepthReconstruction",
+                    side_effect=constructors,
+                ) as cls_mock:
                     result = depth_reconstruct.main(["--config", "/tmp/costmap.yaml"])
 
         self.assertEqual(result, 0)
         from_yaml.assert_called_once_with("/tmp/costmap.yaml")
-        compute_height.assert_called_once_with(cfg)
-        cls_mock.assert_called_once_with(cfg, robot_height_info=robot_height_info)
-        constructor.depth_reconstruction.assert_called_once_with()
-        constructor.save_pcd.assert_called_once_with()
-        constructor.show_pcd.assert_called_once_with()
+        self.assertEqual(compute_height.call_count, 2)
+        self.assertEqual([call.args[0].get_data_path() for call in compute_height.call_args_list], [
+            "/tmp/dataset/forest",
+            "/tmp/dataset/desert",
+        ])
+        self.assertEqual(cls_mock.call_count, 2)
+        self.assertEqual([call.args[0].get_data_path() for call in cls_mock.call_args_list], [
+            "/tmp/dataset/forest",
+            "/tmp/dataset/desert",
+        ])
+        for constructor in constructors:
+            constructor.depth_reconstruction.assert_called_once_with()
+            constructor.save_pcd.assert_called_once_with()
+            constructor.show_pcd.assert_called_once_with()
 
 
 if __name__ == "__main__":

@@ -5,9 +5,10 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 # python
+import copy
 import os
-from dataclasses import dataclass, fields
-from typing import Optional
+from dataclasses import dataclass, field, fields, replace
+from typing import List, Optional
 
 import numpy as np
 import yaml
@@ -123,22 +124,41 @@ def _is_unset_root_path(root_path: Optional[str]) -> bool:
 
 
 def _resolve_costmap_root_path(cfg: "GeneralCostMapConfig", reconstruction_cfg: "ReconstructionCfg") -> None:
-    expected_path = _normalized_config_path(reconstruction_cfg.get_data_path())
+    env_name = reconstruction_cfg.active_env
+    configured_root_path = cfg.root_path
+    parent_path = (
+        _normalized_config_path(reconstruction_cfg.data_dir)
+        if _is_unset_root_path(configured_root_path)
+        else _normalized_config_path(str(configured_root_path))
+    )
+    parent_basename = os.path.basename(os.path.normpath(parent_path))
 
-    if _is_unset_root_path(cfg.root_path):
-        cfg.root_path = expected_path
+    if env_name is None:
+        explicit_env_paths = {
+            _normalized_config_path(os.path.join(reconstruction_cfg.data_dir, env))
+            for env in reconstruction_cfg.env_list
+        }
+        if not _is_unset_root_path(configured_root_path) and (
+            parent_path in explicit_env_paths or parent_basename in reconstruction_cfg.env_list
+        ):
+            raise ValueError(
+                "Cost map root_path must be the parent directory containing reconstruction.env_list "
+                "environments, not a single environment directory."
+            )
+        cfg.root_path = parent_path
         return
 
-    configured_path = _normalized_config_path(str(cfg.root_path))
-    if configured_path != expected_path:
+    env_path = _normalized_config_path(os.path.join(parent_path, env_name))
+    if not _is_unset_root_path(configured_root_path) and (
+        parent_path == reconstruction_cfg.get_data_path() or parent_basename == env_name
+    ):
         raise ValueError(
-            "Cost map root_path does not match reconstruction environment path. "
-            f"Expected '{expected_path}' from reconstruction.data_dir/reconstruction.env, "
-            f"but config.general.root_path is '{configured_path}'. "
-            "Set config.general.root_path to null or update it to the same environment."
+            "Cost map root_path must be the parent directory containing reconstruction.env_list "
+            f"environments. Received single environment path '{parent_path}'. "
+            f"Use '{_normalized_config_path(os.path.dirname(parent_path))}' or set root_path to null."
         )
 
-    cfg.root_path = configured_path
+    cfg.root_path = env_path
 
 
 def construct_GeneralCostMapConfig(loader, node):
@@ -187,10 +207,10 @@ class ReconstructionCfg:
     Arguments for 3D reconstruction using depth maps
     """
 
-    # directory where the environment with the depth (and semantic) images is located
+    # directory where the environments with the depth (and semantic) images are located
     data_dir: str = "${USER_PATH_TO_DATA}"  # e.g. "<path-to-repo>/omniverse/extension/omni.viplanner/data/warehouse"
-    # environment name
-    env: str = "warehouse_new"  # has to be adjusted
+    # environment names
+    env_list: List[str] = field(default_factory=lambda: ["warehouse_new"])  # has to be adjusted
     # image suffix
     depth_suffix: str = ""
     sem_suffix: str = ""
@@ -215,6 +235,37 @@ class ReconstructionCfg:
     point_cloud_batch_size: int = (
         200  # 3d points of nbr images added to point cloud at once (higher values use more memory but faster)
     )
+    _active_env: Optional[str] = field(default=None, init=False, repr=False)
+
+    def __post_init__(self) -> None:
+        self._validate_env_list(self.env_list)
+
+    @staticmethod
+    def _validate_env_list(env_list: List[str]) -> None:
+        if not isinstance(env_list, list) or not env_list:
+            raise ValueError("reconstruction.env_list must be a non-empty list of environment names.")
+        invalid_envs = [
+            env_name
+            for env_name in env_list
+            if not isinstance(env_name, str) or not env_name.strip()
+        ]
+        if invalid_envs:
+            raise ValueError("reconstruction.env_list must contain only non-empty strings.")
+
+    @property
+    def active_env(self) -> Optional[str]:
+        if self._active_env is not None:
+            return self._active_env
+        if len(self.env_list) == 1:
+            return self.env_list[0]
+        return None
+
+    def for_env(self, env_name: str) -> "ReconstructionCfg":
+        if env_name not in self.env_list:
+            raise ValueError(f"Environment '{env_name}' is not listed in reconstruction.env_list.")
+        cfg = replace(self)
+        cfg._active_env = env_name
+        return cfg
 
     @classmethod
     def from_yaml(cls, yaml_path: str):
@@ -239,7 +290,13 @@ class ReconstructionCfg:
         if not isinstance(config, dict):
             raise ValueError(f"Reconstruction config section must be a mapping: {yaml_path}")
 
-        valid_fields = {field.name for field in fields(cls)}
+        if "env" in config:
+            raise ValueError(
+                "Unknown reconstruction config field 'env'. Use reconstruction.env_list with one or more "
+                "environment names instead."
+            )
+
+        valid_fields = {field.name for field in fields(cls) if field.init}
         unknown_fields = sorted(set(config.keys()) - valid_fields)
         if unknown_fields:
             raise ValueError(
@@ -251,10 +308,16 @@ class ReconstructionCfg:
     """ Internal functions """
 
     def get_data_path(self) -> str:
-        return os.path.join(self.data_dir, self.env)
+        env_name = self.active_env
+        if env_name is None:
+            raise ValueError("Use ReconstructionCfg.for_env(env_name) before resolving an environment path.")
+        return os.path.join(self.data_dir, env_name)
 
     def get_out_path(self) -> str:
-        return os.path.join(self.out_dir, self.env)
+        env_name = self.active_env
+        if env_name is None:
+            raise ValueError("Use ReconstructionCfg.for_env(env_name) before resolving an environment path.")
+        return os.path.join(self.out_dir, env_name)
 
 
 @dataclass
@@ -366,7 +429,7 @@ class CostMapConfig:
         if reconstruction_cfg is None and has_reconstruction_section:
             reconstruction_cfg = ReconstructionCfg.from_yaml(yaml_path)
 
-        config = dict(cfg_dict["config"]) if "config" in cfg_dict else dict(cfg_dict)
+        config = copy.deepcopy(cfg_dict["config"]) if "config" in cfg_dict else copy.deepcopy(cfg_dict)
 
         general = config.get("general")
         if isinstance(general, dict):
@@ -381,6 +444,12 @@ class CostMapConfig:
             config["tsdf_cost_map"] = TsdfCostMapConfig(**tsdf_cost_map)
 
         cfg = cls(**config)
+        if "general" not in config:
+            cfg.general = copy.deepcopy(cfg.general)
+        if "sem_cost_map" not in config:
+            cfg.sem_cost_map = copy.deepcopy(cfg.sem_cost_map)
+        if "tsdf_cost_map" not in config:
+            cfg.tsdf_cost_map = copy.deepcopy(cfg.tsdf_cost_map)
         if reconstruction_cfg is not None:
             _resolve_costmap_root_path(cfg.general, reconstruction_cfg)
 

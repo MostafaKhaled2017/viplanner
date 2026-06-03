@@ -45,6 +45,7 @@ class SemCostMap:
 
         # init VIPlanner Semantic Class Meta Handler
         self.sem_meta = VIPlannerSemMetaHandler()
+        self._apply_class_loss_overrides()
 
         # cost map init parameters
         self.pcd: o3d.geometry.PointCloud = None
@@ -58,6 +59,18 @@ class SemCostMap:
 
         # cost map
         self.grid_cell_loss: np.ndarray = None
+        return
+
+    def _apply_class_loss_overrides(self) -> None:
+        if not self._cfg_sem.class_loss_overrides:
+            return
+
+        unknown_classes = sorted(set(self._cfg_sem.class_loss_overrides.keys()) - set(self.sem_meta.class_loss.keys()))
+        if unknown_classes:
+            raise ValueError("Unknown class_loss_overrides: " + ", ".join(unknown_classes))
+
+        for class_name, loss in self._cfg_sem.class_loss_overrides.items():
+            self.sem_meta.class_loss[class_name] = float(loss)
         return
 
     def pcd_init(self) -> None:
@@ -316,10 +329,12 @@ class SemCostMap:
 
         # turn distance into weight
         # pt_dist_weighted = pt_dist * np.linspace(1, 0.01, nb_neigh)
-        pt_dist_inv = 1.0 / pt_dist
-        pt_dist_inv[
-            ~np.isfinite(pt_dist_inv)
-        ] = 0.0  # set inf to 0 (inf or nan values when closest point at the same position)
+        pt_dist_inv = np.divide(
+            1.0,
+            pt_dist,
+            out=np.zeros_like(pt_dist),
+            where=pt_dist > 0.0,
+        )
         pt_weights = scipy.special.softmax(pt_dist_inv, axis=1)
 
         # smooth losses
@@ -412,6 +427,9 @@ class SemCostMap:
         loss_max: float,
         log_scaling: bool,
     ) -> np.ndarray:
+        if len(loss_level_idx[0]) == 0:
+            return np.array([])
+
         grid = np.zeros((self._num_x, self._num_y))
 
         # distance transform
@@ -422,7 +440,10 @@ class SemCostMap:
         if log_scaling:
             grid[grid > 0.0] = np.log(grid[grid > 0.0] + math.e)
         else:
-            grid = (grid - np.min(grid)) / (np.max(grid) - np.min(grid))
+            grid_range = np.max(grid) - np.min(grid)
+            if grid_range == 0.0:
+                return np.full(len(loss_level_idx[0]), loss_min)
+            grid = (grid - np.min(grid)) / grid_range
             grid = grid * (loss_max - loss_min) + loss_min
 
         return grid[loss_level_idx]
@@ -538,7 +559,7 @@ class SemCostMap:
         ).astype(int)
 
         # convert pts_grid_idx to 1d array
-        pts_grid_idx_1d = pts_grid_idx[:, 0] * self._num_x + pts_grid_idx[:, 1]
+        pts_grid_idx_1d = pts_grid_idx[:, 0] * self._num_y + pts_grid_idx[:, 1]
 
         # get index of all points mapped to the same grid location --> take highest value to avoid local minima in e.g. cars
         # following solution given at: https://stackoverflow.com/questions/30003068/how-to-get-a-list-of-all-indices-of-repeated-elements-in-a-numpy-array

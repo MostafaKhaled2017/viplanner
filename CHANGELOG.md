@@ -1,3 +1,47 @@
+## 2026-06-02 07:24 - Add ROS2 VIPlanner package
+
+**Change size**
+- `L`
+
+**Files changed**
+- `src/viplanner_ros2/package.xml`
+- `src/viplanner_ros2/setup.py`
+- `src/viplanner_ros2/setup.cfg`
+- `src/viplanner_ros2/resource/viplanner_ros2`
+- `src/viplanner_ros2/config/viplanner.yaml`
+- `src/viplanner_ros2/launch/viplanner.launch.py`
+- `src/viplanner_ros2/README.md`
+- `src/viplanner_ros2/viplanner_ros2/*.py`
+- `src/custom_path_msgs/CMakeLists.txt`
+- `tests/test_viplanner_ros2_package.py`
+- `CHANGELOG.md`
+
+**What changed**
+- Added a separate ROS2 `viplanner_ros2` package with a Python node entry point, launch file, ROS2 parameter YAML, package metadata, and documentation.
+- Copied the ROS1 VIPlanner inference and helper modules into the ROS2 package namespace to keep the first ROS2 version isolated from ROS1.
+- Ported the VIPlanner runtime node from `rospy` to `rclpy`, including ROS2 publishers, subscriptions, timers, parameters, logging, time handling, and TF lookup.
+- Published the raw model fear value on the configured `fear_topic` using `custom_path_msgs/Fear` on every successful inference.
+- Updated the ROS2 runtime to use sensor QoS for depth/RGB subscriptions, separate input and inference callback groups, a multi-threaded executor, and inference-time state snapshots to reduce stale or blocked sensor processing.
+- Added startup logging for resolved runtime parameters and the image QoS mode.
+- Cleaned up `custom_path_msgs/CMakeLists.txt` ordering and a stale comment without changing message definitions.
+- Extended ROS2 package tests to cover config shape, package metadata, custom fear message usage, custom message package metadata, sensor QoS, callback groups, and multi-threaded executor usage.
+
+**Context**
+- A ROS2 version of `src/viplanner_ros1` was needed while preserving the ROS1 package. The fear value must be available to ROS2 consumers through the existing `custom_path_msgs` message package.
+
+**Validation**
+- `python3 -m unittest tests/test_viplanner_ros2_package.py`
+- `python3 -m unittest tests/test_viplanner_ros1_package.py`
+- `env PYTHONPYCACHEPREFIX=/tmp/viplanner_pycache python3 -m py_compile src/viplanner_ros2/viplanner_ros2/*.py`
+- `git diff --check`
+- `colcon build --packages-select custom_path_msgs viplanner_ros2` was not run because `colcon` is not installed in this environment.
+- ROS2 runtime smoke checks with `ros2 topic hz` and `ros2 param get /viplanner_node use_sim_time` were not run because the `ros2` CLI is not installed in this environment.
+
+**Notes**
+- ROS1 behavior and the existing ROS1 `viplanner_ros1/Fear` message were left unchanged.
+- `custom_path_msgs/msg/Fear.msg` was not changed; the ROS2 node imports and publishes that message type.
+- Sensor/image subscriptions now prefer ROS2 sensor-data QoS while goal, status, path, timing, and fear publishers/subscribers keep their reliable/default QoS behavior.
+
 ## 2026-06-02 07:04 - Publish ROS1 VIPlanner fear value
 
 **Change size**

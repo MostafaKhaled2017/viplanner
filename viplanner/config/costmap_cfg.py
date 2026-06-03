@@ -208,6 +208,8 @@ class ReconstructionCfg:
     robot_height_sample_count: int = 50
     # semantic reconstruction
     semantics: bool = True
+    # semantic classes to drop during reconstruction because they represent unlabeled pixels
+    semantic_ignore_classes: Optional[list] = None
 
     # speed vs. memory trade-off parameters
     point_cloud_batch_size: int = (
@@ -282,6 +284,8 @@ class SemCostMapConfig:
     round_decimal_traversable: int = 2
     # compute height map
     compute_height_map: bool = False  # false for matterport, true for carla and nomoko
+    # optional per-class semantic loss overrides, keyed by VIPlanner semantic class name
+    class_loss_overrides: Optional[dict] = None
 
 
 @dataclass

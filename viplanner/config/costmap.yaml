@@ -12,6 +12,7 @@ reconstruction:
   robot_height_variation_threshold: 0.01
   robot_height_sample_count: 50
   semantics: true
+  semantic_ignore_classes: []
   point_cloud_batch_size: 200
 
 config:
@@ -21,7 +22,7 @@ config:
   map_name: cost_map_sem # `cost_map_sem` or `cost_map_geom`(If using depth only)
 
   general:
-    root_path: "/workspaces/viplanner/src/planner/data/forest_s3"
+    root_path: "/workspaces/viplanner/src/planner/data/forest_s1_high"
     ply_file: cloud.ply
     # resolution: 0.04 # 0.04 for matterport, 0.1 for carla
     # clear_dist: 1.0
@@ -46,6 +47,8 @@ config:
     negative_reward: 0.5
     round_decimal_traversable: 2
     compute_height_map: false # false for matterport, true for carla and nomoko
+    class_loss_overrides:
+      static: 0.0
 
   tsdf_cost_map:
     offset_z: 0.0

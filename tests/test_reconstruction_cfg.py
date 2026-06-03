@@ -43,6 +43,7 @@ class TestReconstructionCfg(unittest.TestCase):
             self.assertEqual(cfg.robot_height_margin, 0.3)
             self.assertEqual(cfg.robot_height_variation_threshold, 0.01)
             self.assertEqual(cfg.robot_height_sample_count, 50)
+            self.assertIsNone(cfg.semantic_ignore_classes)
             self.assertEqual(cfg.point_cloud_batch_size, 200)
 
     def test_from_yaml_accepts_reconstruction_only_mapping(self):
@@ -87,6 +88,26 @@ class TestReconstructionCfg(unittest.TestCase):
 
             with self.assertRaisesRegex(ValueError, "top-level 'reconstruction' section"):
                 ReconstructionCfg.from_yaml(str(config_path))
+
+    def test_from_yaml_accepts_empty_semantic_ignore_classes(self):
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            config_path = Path(tmp_dir) / "costmap.yaml"
+            config_path.write_text(
+                textwrap.dedent(
+                    """
+                    reconstruction:
+                      data_dir: /tmp/dataset
+                      env: forest
+                      semantic_ignore_classes: []
+                    config:
+                      semantics: true
+                    """
+                )
+            )
+
+            cfg = ReconstructionCfg.from_yaml(str(config_path))
+
+            self.assertEqual(cfg.semantic_ignore_classes, [])
 
 
 class TestCostMapRootPathResolution(unittest.TestCase):

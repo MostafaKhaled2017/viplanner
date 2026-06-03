@@ -381,10 +381,22 @@ class DepthReconstruction:
             pixels[filter_idx, 1].astype(int),
             pixels[filter_idx, 0].astype(int),
         ]
-        # remove all pixels that have no semantic annotation
-        non_classified_idx = np.all(sem_annotation == self.sem_handler.class_color["static"], axis=1)
-        sem_annotation = sem_annotation[~non_classified_idx]
-        filter_idx[np.where(filter_idx)[0][non_classified_idx]] = False
+        # remove pixels that have no semantic annotation. Some datasets use "static"
+        # for usable ground, so this can be disabled in the reconstruction config.
+        ignored_classes = self._cfg.semantic_ignore_classes
+        if ignored_classes is None:
+            ignored_classes = ["static"]
+        if ignored_classes:
+            unknown_classes = sorted(set(ignored_classes) - set(self.sem_handler.class_color.keys()))
+            if unknown_classes:
+                raise ValueError("Unknown semantic_ignore_classes: " + ", ".join(unknown_classes))
+            ignored_colors = np.array(
+                [self.sem_handler.class_color[class_name] for class_name in ignored_classes],
+                dtype=sem_annotation.dtype,
+            )
+            non_classified_idx = (sem_annotation[:, None, :] == ignored_colors[None, :, :]).all(axis=2).any(axis=1)
+            sem_annotation = sem_annotation[~non_classified_idx]
+            filter_idx[np.where(filter_idx)[0][non_classified_idx]] = False
 
         return sem_annotation, filter_idx
 

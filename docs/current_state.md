@@ -16,7 +16,16 @@ Created on 2026-06-03.
 
 ## Active Config Focus
 
-The active editor selection referenced:
+The active editor selection referenced hyperparameter sweep training with:
+
+```bash
+python3 viplanner/tune_train.py --sweep-config viplanner/config/sweep.yaml --gpus 1,2,3 --max-parallel 6
+```
+
+`viplanner/config/sweep.yaml` uses `data_cfg.max_depth` for depth-range tuning because `max_depth` belongs to `DataCfg`, not top-level `TrainCfg`.
+The sweep resume checkpoint path is repository-relative: `viplanner/checkpoint`.
+
+Recent cost-map work referenced:
 
 ```bash
 python viplanner/cost_builder.py --config viplanner/config/costmap.yaml
@@ -43,3 +52,10 @@ pytest tests/test_cost_builder.py
 ```
 
 All commands reported passing tests. Pytest emitted cache-write warnings because `.pytest_cache` could not be written in the workspace.
+
+Targeted validation for the sweep config key update passed:
+
+```bash
+python3 viplanner/tune_train.py --sweep-config viplanner/config/sweep.yaml --gpus 1 --max-parallel 1 --max-trials 1 --dry-run
+python3 -c "from viplanner.config import TrainCfg; cfg=TrainCfg.from_yaml('logs/tuning/depth_geom_moderate/configs/trial_0000.yaml'); print(cfg.data_cfg.max_depth); print(hasattr(cfg, 'max_depth')); print(cfg.resume_model_path)"
+```

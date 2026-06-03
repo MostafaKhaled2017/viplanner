@@ -36,7 +36,7 @@ python viplanner/train.py --config viplanner/config/train.yaml
 Training resume example from `commands.bash`:
 
 ```bash
-python viplanner/train.py --config viplanner/config/train.yaml --resume-from /workspaces/viplanner/viplanner/checkpoint --no-test-visualizations
+python viplanner/train.py --config viplanner/config/train.yaml --resume-from viplanner/checkpoint --no-test-visualizations
 ```
 
 TensorBoard:
@@ -48,7 +48,7 @@ tensorboard --logdir src/planner/logs --host 0.0.0.0 --port 6006
 Hyperparameter sweep:
 
 ```bash
-python3 viplanner/tune_train.py --sweep-config viplanner/config/sweep_depth_geom.yaml --gpus 1,2 --max-parallel 4
+python3 viplanner/tune_train.py --sweep-config viplanner/config/sweep.yaml --gpus 1,2 --max-parallel 4
 ```
 
 Generate semantics from RGB:

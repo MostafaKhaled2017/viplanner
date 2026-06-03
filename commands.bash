@@ -56,9 +56,9 @@ python viplanner/train.py --config viplanner/config/train.yaml --resume-from /wo
 tensorboard --logdir src/planner/logs --host 0.0.0.0 --port 6006
 
 python3 viplanner/tune_train.py \
-  --sweep-config viplanner/config/sweep_depth_geom.yaml \
-  --gpus 1,2 \
-  --max-parallel 4
+  --sweep-config viplanner/config/sweep.yaml \
+  --gpus 1,2,3 \
+  --max-parallel 6
 
 # Generate Sementics from RGB
 python3 viplanner/generate_semantics.py \

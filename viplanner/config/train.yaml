@@ -6,7 +6,7 @@ config:
   gpu_id: 3
   file_path: "src/planner"
 
-  cost_map_name: cost_map_geom # use cost_map_sem for semantic cost maps
+  cost_map_name: cost_map_sem # cost_map_geom, or cost_map_sem for semantic cost maps
   env_list: # Expected under data directory
     - forest_s1_high
     - forest_s2

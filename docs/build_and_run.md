@@ -25,6 +25,7 @@ python viplanner/cost_builder.py --config viplanner/config/costmap.yaml
 ```
 
 Cost-map generation also processes each `reconstruction.env_list` entry separately. `config.general.root_path` is the parent directory that contains the environment directories.
+For multi-environment configs, the final Open3D cost-map visualization is disabled by default so the batch can complete; pass `--final-viz` to show each map, or `--no-final-viz` to disable it explicitly.
 
 Training:
 

@@ -14,7 +14,7 @@ python viplanner/depth_reconstruct.py --config viplanner/config/costmap.yaml
 
 # Generating PCL & Building cost map
 # Adjust reconstruction.env_list in config/costmap.yaml; root_path is the parent directory containing environments.
-# Important params: map_name, semantics, geometry
+# Important params: map_name, semantics, geometry. Multi-env batches skip final visualization by default.
 python viplanner/cost_builder.py --config viplanner/config/costmap.yaml
 
 # Launch the planner package

@@ -5,6 +5,7 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 import argparse
+from typing import Optional
 
 # imperative-cost-map
 from viplanner.config import (
@@ -66,11 +67,28 @@ def build_argparser() -> argparse.ArgumentParser:
         required=True,
         help="Path to the cost map yaml config file",
     )
+    viz_group = parser.add_mutually_exclusive_group()
+    viz_group.add_argument(
+        "--final-viz",
+        dest="final_viz",
+        action="store_true",
+        help="Show the final cost map visualization for each processed environment.",
+    )
+    viz_group.add_argument(
+        "--no-final-viz",
+        dest="final_viz",
+        action="store_false",
+        help="Do not show the final cost map visualization.",
+    )
+    parser.set_defaults(final_viz=None)
     return parser
 
 
-def run_from_config(config_path: str, final_viz: bool = True) -> None:
+def run_from_config(config_path: str, final_viz: Optional[bool] = None) -> None:
     reconstruction_cfg = ReconstructionCfg.from_yaml(config_path)
+    show_final_viz = final_viz if final_viz is not None else len(reconstruction_cfg.env_list) == 1
+    if final_viz is None and len(reconstruction_cfg.env_list) > 1:
+        print("[INFO] Final cost map visualization disabled for multi-environment batch processing.")
     for env_name in reconstruction_cfg.env_list:
         env_reconstruction_cfg = reconstruction_cfg.for_env(env_name)
         print(f"============ Processing environment: {env_name} ============")
@@ -78,12 +96,12 @@ def run_from_config(config_path: str, final_viz: bool = True) -> None:
         print(robot_height_info_message(robot_height_info))
 
         cfg = CostMapConfig.from_yaml(config_path, reconstruction_cfg=env_reconstruction_cfg)
-        main(cfg, robot_height=robot_height_info.robot_height, final_viz=final_viz)
+        main(cfg, robot_height=robot_height_info.robot_height, final_viz=show_final_viz)
 
 
 if __name__ == "__main__":
     args = build_argparser().parse_args()
 
-    run_from_config(args.config)
+    run_from_config(args.config, final_viz=args.final_viz)
 
 # EoF

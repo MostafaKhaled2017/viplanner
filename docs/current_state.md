@@ -16,6 +16,8 @@ Created on 2026-06-03.
 
 ## Active Config Focus
 
+The latest training-data fix isolates generated warped semantic images and depth-edge images under per-generator subdirectories. This prevents parallel sweep trials from deleting another active trial's generated `img_warp` inputs during cleanup.
+
 The active editor selection referenced hyperparameter sweep training with:
 
 ```bash
@@ -58,4 +60,10 @@ Targeted validation for the sweep config key update passed:
 ```bash
 python3 viplanner/tune_train.py --sweep-config viplanner/config/sweep.yaml --gpus 1 --max-parallel 1 --max-trials 1 --dry-run
 python3 -c "from viplanner.config import TrainCfg; cfg=TrainCfg.from_yaml('logs/tuning/depth_geom_moderate/configs/trial_0000.yaml'); print(cfg.data_cfg.max_depth); print(hasattr(cfg, 'max_depth')); print(cfg.resume_model_path)"
+```
+
+Targeted validation for generated training-data cleanup passed:
+
+```bash
+pytest tests/test_dataset_generated_dirs.py
 ```

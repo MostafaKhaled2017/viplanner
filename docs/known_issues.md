@@ -13,6 +13,33 @@
 - The repository has generated or build output directories checked out locally: `build/`, `devel/`, and `logs/`.
 - Some config files contain absolute paths under `/workspaces/viplanner`, so portability depends on either editing configs or matching that workspace path.
 
+## Parallel sweep can delete generated warped semantic images
+
+**Symptom**
+
+Training can fail in a DataLoader worker with `FileNotFoundError` for a generated image such as `src/planner/data/forest_s3/img_warp/0177_cam1.png`.
+
+**Context**
+
+This can happen during parallel hyperparameter sweeps where multiple training processes share the same dataset environment directories.
+
+**Likely cause**
+
+`PlannerDataGenerator` previously wrote warped semantic inputs into a shared per-environment `img_warp` directory, and cleanup removed that whole directory. A completed trial could delete files still referenced by another active trial.
+
+**Fix or workaround**
+
+Generated warped semantic images and generated depth-edge images are now written under per-generator subdirectories, and cleanup removes only the generator-owned subdirectory. As a workaround on older code, reduce sweep parallelism or avoid cleanup while parallel trials are active.
+
+**Validation**
+
+`pytest tests/test_dataset_generated_dirs.py` passed.
+
+**Related files**
+
+- `viplanner/utils/dataset.py`
+- `tests/test_dataset_generated_dirs.py`
+
 ## Unknown
 
 - Whether all ROS launch files run in the current container without external simulator, robot, camera, TF, and model assets.

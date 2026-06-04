@@ -16,6 +16,8 @@ Created on 2026-06-03.
 
 ## Active Config Focus
 
+The latest training fix treats `resume_model_path` checkpoints outside the current run directory as warm-start checkpoints. The model weights are loaded, but the new run resets `best_loss` so early stopping and model selection compare against validation losses from the current run instead of the source checkpoint's stored loss.
+
 The latest training-data fix isolates generated warped semantic images and depth-edge images under per-generator subdirectories. This prevents parallel sweep trials from deleting another active trial's generated `img_warp` inputs during cleanup.
 
 The active editor selection referenced hyperparameter sweep training with:
@@ -66,4 +68,11 @@ Targeted validation for generated training-data cleanup passed:
 
 ```bash
 pytest tests/test_dataset_generated_dirs.py
+```
+
+Targeted validation for warm-start checkpoint early stopping passed:
+
+```bash
+PYTHONPYCACHEPREFIX=/tmp/viplanner-pycache python3 -m py_compile viplanner/utils/trainer.py tests/test_training_early_stopping.py
+pytest tests/test_training_early_stopping.py
 ```

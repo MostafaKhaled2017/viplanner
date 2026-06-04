@@ -445,12 +445,18 @@ class Trainer:
 
         if resume:
             load_path = self._resolve_checkpoint_path(checkpoint_path or self.model_path)
-            model_state_dict, self.best_loss = torch.load(load_path)
+            model_state_dict, checkpoint_loss = torch.load(load_path)
             self.net.load_state_dict(model_state_dict)
-            print(f"Resume train from {load_path} with loss " f"{self.best_loss}")
-            if checkpoint_path is not None and os.path.abspath(load_path) != os.path.abspath(self.model_path):
-                torch.save((self.net.state_dict(), self.best_loss), self.model_path)
+            self.best_loss = checkpoint_loss
+            print(f"Resume train from {load_path} with loss " f"{checkpoint_loss}")
+            is_warm_start = checkpoint_path is not None and os.path.abspath(load_path) != os.path.abspath(
+                self.model_path
+            )
+            if is_warm_start:
+                torch.save((self.net.state_dict(), checkpoint_loss), self.model_path)
                 print(f"[INFO] Save resume checkpoint copy to {self.model_path}")
+                self.best_loss = float("inf")
+                print("[INFO] Reset best validation loss for warm-start training")
 
         self._apply_freeze_layers()
         print(f"[INFO] MODEL LOADED ({count_parameters(self.net)} trainable parameters)")

@@ -158,6 +158,57 @@ class TrainingEarlyStoppingTest(unittest.TestCase):
             self.assertEqual(list(Path(trainer.checkpoint_dir).iterdir()), [])
 
     @unittest.skipIf(TRAINER_IMPORT_ERROR is not None, f"Trainer import failed: {TRAINER_IMPORT_ERROR}")
+    def test_external_resume_checkpoint_resets_best_loss_for_warm_start(self):
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            checkpoint_path = Path(tmp_dir) / "source" / "model.pt"
+            model_path = Path(tmp_dir) / "target" / "model.pt"
+            checkpoint_path.parent.mkdir()
+            model_path.parent.mkdir()
+            torch.save((_FakeNet().state_dict(), 0.25), checkpoint_path)
+
+            trainer = object.__new__(Trainer)
+            trainer._cfg = SimpleNamespace(
+                sem=False,
+                rgb=False,
+                in_channel=1,
+                knodes=1,
+                gpu_id=0,
+                freeze_layers=0,
+            )
+            trainer.model_path = str(model_path)
+            trainer.net = _FakeNet()
+            trainer._apply_freeze_layers = lambda: None
+
+            original_cuda_is_available = torch.cuda.is_available
+            original_cuda_device_count = torch.cuda.device_count
+            original_auto_encoder = Trainer._load_model.__globals__["AutoEncoder"]
+            original_count_parameters = Trainer._load_model.__globals__["count_parameters"]
+
+            class _CudaNet(_FakeNet):
+                def cuda(self, gpu_id):
+                    return self
+
+                def load_state_dict(self, state_dict):
+                    self.loaded_state_dict = state_dict
+
+            try:
+                torch.cuda.is_available = lambda: True
+                torch.cuda.device_count = lambda: 1
+                Trainer._load_model.__globals__["AutoEncoder"] = lambda in_channel, knodes: _CudaNet()
+                Trainer._load_model.__globals__["count_parameters"] = lambda net: 1
+
+                trainer._load_model(resume=True, checkpoint_path=str(checkpoint_path))
+            finally:
+                torch.cuda.is_available = original_cuda_is_available
+                torch.cuda.device_count = original_cuda_device_count
+                Trainer._load_model.__globals__["AutoEncoder"] = original_auto_encoder
+                Trainer._load_model.__globals__["count_parameters"] = original_count_parameters
+
+            self.assertEqual(trainer.best_loss, float("inf"))
+            _, copied_loss = torch.load(model_path)
+            self.assertEqual(copied_loss, 0.25)
+
+    @unittest.skipIf(TRAINER_IMPORT_ERROR is not None, f"Trainer import failed: {TRAINER_IMPORT_ERROR}")
     def test_epoch_tensorboard_logs_total_loss_before_components(self):
         trainer = object.__new__(Trainer)
         trainer.log_writer = _FakeWriter()
